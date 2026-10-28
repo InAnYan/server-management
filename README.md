@@ -25,7 +25,8 @@ Bare-bones infrastructure repository for managing Proxmox VE servers, virtual ma
  └───────────────────────────────────────────┘
 ```
 
-- **`opentofu/`**: Proxmox VM & LXC provisioning using the modern `bpg/proxmox` provider.
+- **`opentofu/vms/`** (or `terraform/vms/`): Generic Proxmox VM management.
+- **`opentofu/uptime-kuma/`** (or `terraform/uptime-kuma/`): Dedicated stack for Uptime Kuma monitoring service.
 - **`ansible/`**: Base configuration, package installations, and system hardening.
 
 ---
@@ -60,39 +61,50 @@ Because this directory serves as both a **Git repository** (potentially pushed t
    ```bash
    cp .env.example .env
    ```
-2. For OpenTofu, create your local variables file:
+2. For OpenTofu / Terraform stacks, create your local variables:
    ```bash
-   cp opentofu/terraform.tfvars.example opentofu/terraform.tfvars
-   # Edit opentofu/terraform.tfvars with your Proxmox API token and endpoint
+   # For VMs stack
+   cp opentofu/vms/terraform.tfvars.example opentofu/vms/terraform.tfvars
+   
+   # For Uptime Kuma stack
+   cp opentofu/uptime-kuma/terraform.tfvars.example opentofu/uptime-kuma/terraform.tfvars
    ```
-3. For Ansible Vault, create a vault password file (or pass `--ask-vault-pass`):
+3. For Ansible Vault (Approach 1: Full-file encryption):
    ```bash
+   # Create your local vault password file (gitignored)
    echo "your-strong-vault-password" > .vault_pass
    chmod 600 .vault_pass
-   ```
-   To create an encrypted secrets file:
-   ```bash
-   ansible-vault create ansible/group_vars/all/vault.yml --vault-password-file .vault_pass
+
+   # Create the encrypted secrets file
+   ansible-vault create ansible/group_vars/all/vault.yml
    ```
 
 ### 3. Usage
 
-#### OpenTofu (Provisioning)
+#### Provisioning (OpenTofu / Terraform)
 ```bash
-cd opentofu
+# Provision generic VMs:
+cd opentofu/vms          # or: cd terraform/vms
+tofu init
+tofu plan
+tofu apply
+
+# Provision Uptime Kuma:
+cd opentofu/uptime-kuma  # or: cd terraform/uptime-kuma
 tofu init
 tofu plan
 tofu apply
 ```
 
 #### Ansible (Configuration)
+Because `ansible.cfg` is pre-configured with `vault_password_file = ../.vault_pass`, Ansible automatically decrypts `vault.yml`:
 ```bash
 cd ansible
 # Test connectivity
 ansible all -m ping
 
-# Run base configuration
-ansible-playbook site.yml --vault-password-file ../.vault_pass
+# Run base configuration playbook
+ansible-playbook site.yml
 ```
 
 ---

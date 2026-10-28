@@ -14,3 +14,9 @@ variable "proxmox_insecure" {
   type        = bool
   default     = true
 }
+
+variable "proxmox_node" {
+  description = "The Proxmox node to target (e.g., pve)"
+  type        = string
+  default     = "pve"
+}

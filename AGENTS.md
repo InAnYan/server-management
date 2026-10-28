@@ -40,11 +40,18 @@ This repository is intended to be both a Git repository and an active working di
 ├── .gitignore                         # Strict exclusion of secrets, state, and caches
 ├── AGENTS.md                          # Agent rules and repository guidance
 ├── README.md                          # Human-oriented overview and setup instructions
-├── opentofu/                          # Infrastructure provisioning (Proxmox)
-│   ├── main.tf                        # Provider configuration and core resources
-│   ├── variables.tf                   # Input variable declarations
-│   ├── outputs.tf                     # Provisioning outputs (e.g. instance IPs)
-│   └── terraform.tfvars.example       # Example variables (no real secrets)
+├── opentofu/                          # Infrastructure provisioning (Proxmox; aliased as terraform/)
+│   ├── vms/                           # VM stack
+│   │   ├── main.tf
+│   │   ├── variables.tf
+│   │   ├── outputs.tf
+│   │   └── terraform.tfvars.example
+│   └── uptime-kuma/                   # Uptime Kuma stack
+│       ├── main.tf
+│       ├── variables.tf
+│       ├── outputs.tf
+│       └── terraform.tfvars.example
+├── terraform -> opentofu              # Symlink for terraform CLI users
 └── ansible/                           # Server configuration & state
     ├── ansible.cfg                    # Ansible configuration
     ├── inventory/

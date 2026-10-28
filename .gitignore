@@ -19,7 +19,8 @@ id_ed25519*
 *.pfx
 
 # OpenTofu / Terraform
-opentofu/.terraform/
+.terraform/
+**/.terraform/
 *.tfstate
 *.tfstate.*
 crash.log

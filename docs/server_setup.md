@@ -99,7 +99,7 @@ sudo chmod 2770 /srv/admin
 cd /srv/admin
 git clone https://github.com/InAnYan/server-management .
 
-# Configure secret files for sudo group access (see ADR-0001)
+# Configure secret files for sudo group access:
 # Any local uncommitted secret files must be owned by :sudo and set to 660:
 chmod 660 /srv/admin/.env /srv/admin/terraform/*/*.tfvars 2>/dev/null || true
 ```

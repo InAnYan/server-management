@@ -80,3 +80,22 @@ sudo tailscale up
 tailscale ip -4
 tailscale status
 ```
+
+## 7. Setup Shared Administrator Workspace
+
+Create the shared `/srv/admin` workspace owned by `root:sudo` with `2770` permissions (setgid ensures all newly created files inherit the `sudo` group; read/write/execute for root and sudo members, zero access for outsiders):
+
+```bash
+# Create shared directory
+sudo mkdir -p /srv/admin
+
+# Set ownership to root and sudo group
+sudo chown root:sudo /srv/admin
+
+# Set permissions: rwxrwx--- with setgid (2770)
+sudo chmod 2770 /srv/admin
+
+# Clone repository into admin workspace
+cd /srv/admin
+git clone https://github.com/InAnYan/server-management .
+```

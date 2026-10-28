@@ -36,6 +36,7 @@ Bare-bones infrastructure repository for managing Proxmox VE servers, virtual ma
 Secrets (`*.tfvars`, `.env`, and `ansible/**/secrets.yml`) are stored **locally in plaintext** for operational simplicity and are **strictly forbidden from being committed to Git**.
 
 Protection is enforced by multiple defensive layers:
+
 - **Git Exclusion**: `.gitignore` blocks `.env`, `*.tfvars`, `*.tfstate`, `secrets.yml`, and private keys. Only `.example` templates are tracked.
 - **Git Pre-commit Hook**: Automatically scans staged files and content before any commit can be created.
 - **CI/CD Pipelines**: GitHub Actions and GitLab CI fail if any secrets or sensitive file patterns are detected.
@@ -52,6 +53,7 @@ Protection is enforced by multiple defensive layers:
 ## Getting Started
 
 ### 1. Prerequisites
+
 - **Git**
 - **OpenTofu** (`>= 1.6`)
 - **Ansible** (`>= 2.15`)
@@ -60,10 +62,13 @@ Protection is enforced by multiple defensive layers:
 ### 2. Configure Secrets & Environment
 
 1. Copy the environment template:
+
    ```bash
    cp .env.example .env
    ```
+
 2. For OpenTofu / Terraform stacks, create your local variables:
+
    ```bash
    # For VMs stack
    cp opentofu/vms/terraform.tfvars.example opentofu/vms/terraform.tfvars
@@ -71,13 +76,16 @@ Protection is enforced by multiple defensive layers:
    # For Uptime Kuma stack
    cp opentofu/uptime-kuma/terraform.tfvars.example opentofu/uptime-kuma/terraform.tfvars
    ```
+
 3. For Ansible secrets (local plaintext, gitignored):
+
    ```bash
    cp ansible/group_vars/all/secrets.yml.example ansible/group_vars/all/secrets.yml
    # Edit ansible/group_vars/all/secrets.yml with your actual server passwords / keys
    ```
 
 4. Enable Git pre-commit hook:
+
    ```bash
    git config core.hooksPath .githooks
    ```
@@ -85,6 +93,7 @@ Protection is enforced by multiple defensive layers:
 ### 3. Usage
 
 #### Provisioning (OpenTofu / Terraform)
+
 ```bash
 # Provision generic VMs:
 cd opentofu/vms          # or: cd terraform/vms
@@ -100,7 +109,9 @@ tofu apply
 ```
 
 #### Ansible (Configuration)
-Because `ansible.cfg` is pre-configured with `vault_password_file = ../.vault_pass`, Ansible automatically decrypts `vault.yml`:
+
+Run playbooks using local secrets (auto-loaded from `ansible/group_vars/all/secrets.yml`):
+
 ```bash
 cd ansible
 # Test connectivity

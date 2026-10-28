@@ -7,6 +7,7 @@ This document provides instructions, constraints, and conventions for AI agents 
 ## 1. Project Overview & Role
 
 This repository manages infrastructure and configuration for a Proxmox VE environment:
+
 - **Provisioning layer (`opentofu/`)**: Manages Proxmox VMs, LXC containers, networks, and storage using OpenTofu (`bpg/proxmox` provider).
 - **Configuration layer (`ansible/`)**: Configures operating systems, packages, users, and services on provisioned nodes.
 
@@ -16,7 +17,8 @@ This repository manages infrastructure and configuration for a Proxmox VE enviro
 
 This repository is intended to be both a Git repository and an active working directory for managing live servers. **Never leak secrets into version control.**
 
-### Golden Rules for Agents:
+### Golden Rules for Agents
+
 1. **Never commit plaintext secrets**: Passwords, API tokens, private SSH keys, TLS certificates, and decryption keys must **NEVER** appear in tracked Git files or commit history.
 2. **Respect `.gitignore`**:
    - `opentofu/terraform.tfvars` (and any `*.tfvars`) is strictly ignored. Only create or update `*.tfvars.example` with sanitized placeholder values.

@@ -5,6 +5,18 @@ stages:
 include:
   - template: Security/Secret-Detection.gitlab-ci.yml
 
+# Lint Markdown files whenever markdown files are modified
+markdownlint:
+  stage: test
+  image: node:20-alpine
+  rules:
+    - changes:
+        - "**/*.md"
+        - ".markdownlint.json"
+        - ".gitlab-ci.yml"
+  script:
+    - npx -y markdownlint-cli "**/*.md"
+
 # Custom job to ensure no forbidden files (tfvars, state, secrets.yml, etc.) are tracked in Git
 forbidden-files-check:
   stage: test

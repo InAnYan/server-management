@@ -1,0 +1,6 @@
+# Copy this file to terraform.tfvars and fill in your values
+# (terraform.tfvars is gitignored to avoid leaking credentials)
+
+proxmox_endpoint  = "https://192.168.1.100:8006/"
+proxmox_api_token = "root@pam!opentofu=00000000-0000-0000-0000-000000000000"
+proxmox_insecure  = true

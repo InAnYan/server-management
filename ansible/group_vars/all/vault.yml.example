@@ -1,0 +1,7 @@
+# Example vault file for encrypted credentials.
+# Encrypt this file with: ansible-vault encrypt ansible/group_vars/all/vault.yml
+# Or edit an encrypted file with: ansible-vault edit ansible/group_vars/all/vault.yml
+
+vault_admin_password: "supersecretpassword"
+vault_api_keys:
+  service_a: "token-here"

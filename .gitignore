@@ -1,0 +1,44 @@
+# OS / Editor files
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.swp
+*.bak
+*~
+
+# Secrets & Environment variables
+.env
+.env.*
+!.env.example
+*.key
+*.pem
+id_rsa*
+id_ed25519*
+*.p12
+*.pfx
+
+# OpenTofu / Terraform
+opentofu/.terraform/
+*.tfstate
+*.tfstate.*
+crash.log
+crash.*.log
+*.tfvars
+*.tfvars.json
+!*.tfvars.example
+override.tf
+override.tf.json
+*_override.tf
+*_override.tf.json
+.terraformrc
+terraform.rc
+.tofurc
+
+# Ansible
+ansible/*.retry
+.vault_pass
+.vault_password
+*vault_pass*
+*vault-pass*
+*.vault_password

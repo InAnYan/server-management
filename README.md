@@ -26,7 +26,7 @@ Bare-bones infrastructure repository for managing Proxmox VE servers, virtual ma
 ```
 
 - **`terraform/server_setup/`**: Base Proxmox host setup, bridges, and storage.
-- **`terraform/vms/`**: Generic Proxmox VM management.
+- **`terraform/core_infrastructure/`**: Core infrastructure services (DNS, reverse proxy, git).
 - **`terraform/uptime-kuma/`**: Dedicated stack for Uptime Kuma monitoring service.
 - **`ansible/`**: Base configuration, package installations, and system hardening.
 
@@ -77,8 +77,8 @@ Protection is enforced by multiple defensive layers:
    # For Server Setup stack
    cp terraform/server_setup/terraform.tfvars.example terraform/server_setup/terraform.tfvars
 
-   # For VMs stack
-   cp terraform/vms/terraform.tfvars.example terraform/vms/terraform.tfvars
+   # For Core Infrastructure stack
+   cp terraform/core_infrastructure/terraform.tfvars.example terraform/core_infrastructure/terraform.tfvars
 
    # For Uptime Kuma stack
    cp terraform/uptime-kuma/terraform.tfvars.example terraform/uptime-kuma/terraform.tfvars
@@ -108,8 +108,8 @@ tofu init
 tofu plan
 tofu apply
 
-# Provision generic VMs:
-cd terraform/vms
+# Provision core infrastructure:
+cd terraform/core_infrastructure
 tofu init
 tofu plan
 tofu apply

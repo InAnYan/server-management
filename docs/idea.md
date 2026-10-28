@@ -1,36 +1,36 @@
-# Infrastructure Architecture & Vision
+# Infrastructure Architecture
 
-Overview of the server utilization strategy and infrastructure organization.
-
----
-
-## Three-Tier Architecture
-
-The server infrastructure is organized into three distinct layers:
-
-### 1. Server Setup (Host Level)
-
-- Proxmox VE host settings, storage pools, and network bridges.
-- Host firewall, kernel parameters, and system updates.
-- Base security: SSH hardening, user accounts, and Tailscale VPN.
-
-### 2. Core Infrastructure
-
-- Shared foundational services required by downstream workloads.
-- Core DNS server (internal name resolution).
-- Reverse proxy and TLS certificate automation.
-- Essential shared utilities (Git hosting, monitoring with Uptime Kuma).
-
-### 3. End-User & Lab Services
-
-- User applications, lab research services, and internal projects.
-- Subdivided into isolated environments:
-  - **Development Environment**: Staging instances, testing containers, and active development sandboxes.
-  - **Production Environment**: High-availability, persistent services with backup schedules.
+Core idea of server utilization and infrastructure organization across three layers.
 
 ---
 
-## Operational Environment
+## 1. Server Setup
 
-- This repository is designed to be cloned and run directly on the Proxmox host.
-- Shared location across administrators: `/srv/admin`.
+Setup of the Proxmox node itself.
+
+**Linked places:**
+
+- [docs/server_setup.md](server_setup.md): Manual host bootstrap steps (Proxmox install, user creation, SSH hardening, Tailscale, and `/srv/admin` setup).
+- [`terraform/server_setup/`](../terraform/server_setup/): OpenTofu scripts for Proxmox host settings, network bridges, and storage pools.
+
+---
+
+## 2. Core Infrastructure
+
+Essential foundational services (DNS server, reverse proxy, Git, etc.). These foundational services provide network and routing foundations rather than shared databases for user applications.
+
+**Linked places:**
+
+- [`terraform/core_infrastructure/`](../terraform/core_infrastructure/): OpenTofu stack for core infrastructure instances.
+- [`terraform/uptime-kuma/`](../terraform/uptime-kuma/): Monitoring service. Run separately after `core_infrastructure` is provisioned and configured.
+
+---
+
+## 3. End-User Services
+
+Projects and services that users or the lab require, run, and develop.
+
+- Subdivided into environments:
+  - **Development Environment**
+  - **Production Environment**
+- End-user services have their own dedicated instances (such as Postgres, Redis, and S3 object storage) rather than sharing database layers.

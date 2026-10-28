@@ -53,7 +53,7 @@ This repository is intended to be both a Git repository and an active working di
 │   │   ├── variables.tf
 │   │   ├── outputs.tf
 │   │   └── terraform.tfvars.example
-│   ├── vms/                           # VM stack
+│   ├── core_infrastructure/          # Core infrastructure stack (DNS, proxy, git)
 │   │   ├── main.tf
 │   │   ├── variables.tf
 │   │   ├── outputs.tf

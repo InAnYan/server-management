@@ -43,3 +43,9 @@ ansible/*.retry
 *vault_pass*
 *vault-pass*
 *.vault_password
+# Unencrypted Ansible secret files (never commit)
+ansible/**/vault.yml
+ansible/**/secrets.yml
+*secrets.yml
+*vault.yml
+!*.example

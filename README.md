@@ -33,17 +33,19 @@ Bare-bones infrastructure repository for managing Proxmox VE servers, virtual ma
 
 ## Secrets Management Strategy
 
-Because this directory serves as both a **Git repository** (potentially pushed to remote) and an **active server management workspace**, secrets are handled with a multi-layered approach:
+Secrets (`*.tfvars`, `.env`, and `ansible/**/secrets.yml`) are stored **locally in plaintext** for operational simplicity and are **strictly forbidden from being committed to Git**.
 
-| Secret Type | Storage Location | Protection Mechanism |
+Protection is enforced by multiple defensive layers:
+- **Git Exclusion**: `.gitignore` blocks `.env`, `*.tfvars`, `*.tfstate`, `secrets.yml`, and private keys. Only `.example` templates are tracked.
+- **Git Pre-commit Hook**: Automatically scans staged files and content before any commit can be created.
+- **CI/CD Pipelines**: GitHub Actions and GitLab CI fail if any secrets or sensitive file patterns are detected.
+- **Security Assessment**: See [docs/potential_security_issues.md](docs/potential_security_issues.md) for an analysis of risks and safeguards.
+
+| Secret Type | Local File (Gitignored) | Tracked Template |
 | :--- | :--- | :--- |
-| **Proxmox API Credentials** | `opentofu/terraform.tfvars` or `.env` | Strict `.gitignore` rule; committed `*.example` files only |
-| **Ansible Secrets & Passwords** | `ansible/group_vars/**/vault.yml` | Encrypted via **Ansible Vault** (`ansible-vault encrypt`) |
-| **Vault Master Password** | `.vault_pass` or `~/.vault_pass` | Strict `.gitignore` rule |
-| **SSH Private Keys** | `~/.ssh/` | Never stored in repository tree; standard SSH agent or paths |
-
-> [!IMPORTANT]
-> The `.gitignore` is pre-configured to ignore all `.env` files, `*.tfvars`, `*.tfstate`, `.vault_pass`, and SSH private keys. Always verify staged changes with `git status` before committing.
+| **Proxmox API Credentials** | `terraform/*/terraform.tfvars`, `.env` | `terraform/*/terraform.tfvars.example`, `.env.example` |
+| **Ansible Passwords & Keys** | `ansible/group_vars/all/secrets.yml` | `ansible/group_vars/all/secrets.yml.example` |
+| **SSH Private Keys** | `~/.ssh/` | Never stored in repository |
 
 ---
 
@@ -69,14 +71,15 @@ Because this directory serves as both a **Git repository** (potentially pushed t
    # For Uptime Kuma stack
    cp opentofu/uptime-kuma/terraform.tfvars.example opentofu/uptime-kuma/terraform.tfvars
    ```
-3. For Ansible Vault (Approach 1: Full-file encryption):
+3. For Ansible secrets (local plaintext, gitignored):
    ```bash
-   # Create your local vault password file (gitignored)
-   echo "your-strong-vault-password" > .vault_pass
-   chmod 600 .vault_pass
+   cp ansible/group_vars/all/secrets.yml.example ansible/group_vars/all/secrets.yml
+   # Edit ansible/group_vars/all/secrets.yml with your actual server passwords / keys
+   ```
 
-   # Create the encrypted secrets file
-   ansible-vault create ansible/group_vars/all/vault.yml
+4. Enable Git pre-commit hook:
+   ```bash
+   git config core.hooksPath .githooks
    ```
 
 ### 3. Usage

@@ -48,6 +48,7 @@ Protection is enforced by multiple defensive layers:
 
 | Secret Type | Local File (Gitignored) | Tracked Template |
 | :--- | :--- | :--- |
+| **Private Operational Data** | `PRIVATE.md` | Documented in `AGENTS.md` |
 | **Proxmox API Credentials** | `terraform/*/terraform.tfvars`, `.env` | `terraform/*/terraform.tfvars.example`, `.env.example` |
 | **Ansible Inventory (Host IPs)** | `ansible/inventory/hosts.ini` | `ansible/inventory/hosts.ini.example` |
 | **Ansible Passwords & Keys** | `ansible/group_vars/all/secrets.yml` | `ansible/group_vars/all/secrets.yml.example` |
@@ -103,29 +104,33 @@ Protection is enforced by multiple defensive layers:
    pre-commit install
    ```
 
-### 3. Usage
+### 3. Usage & Deployment Workflow
 
-#### Provisioning (OpenTofu)
+Infrastructure changes are pushed from your workstation and applied **directly on the target server** (where OpenTofu state lives):
 
-```bash
-# Provision base server setup:
-cd terraform/server_setup
-tofu init
-tofu plan
-tofu apply
+1. **Push changes**: `git push origin main`
+2. **Deploy on the server**:
 
-# Provision core infrastructure:
-cd terraform/core_infrastructure
-tofu init
-tofu plan
-tofu apply
+   ```bash
+   ssh <server>   # See PRIVATE.md for target alias
+   cd /srv/admin
+   git pull origin main
 
-# Provision Uptime Kuma:
-cd terraform/uptime-kuma
-tofu init
-tofu plan
-tofu apply
-```
+   # Provision base server setup:
+   cd terraform/server_setup
+   tofu plan
+   tofu apply
+
+   # Provision core infrastructure:
+   cd ../core_infrastructure
+   tofu plan
+   tofu apply
+
+   # Provision Uptime Kuma:
+   cd ../uptime-kuma
+   tofu plan
+   tofu apply
+   ```
 
 #### Ansible (Configuration)
 

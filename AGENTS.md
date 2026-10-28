@@ -18,12 +18,23 @@ This repository manages infrastructure and configuration for a Proxmox VE enviro
 
 ## 2. Secrets Management & Safety Policy (CRITICAL)
 
-This repository is intended to be both a Git repository and an active working directory for managing live servers. **Never leak secrets into version control.**
+> [!CAUTION]
+> **PUBLIC REPOSITORY NOTICE**: This repository is public on GitHub. Absolutely **NO private information**—including server hostnames, actual node names, private IPs, domain names, usernames, or secrets—may ever be committed or published.
+
+This repository is intended to be both a public Git repository and an active working directory for managing live servers. **Never leak secrets or private operational data into version control.**
+
+### Private Operational Details (`PRIVATE.md`)
+
+All machine-specific identifiers (such as target server hostnames, node names, internal IPs, and local SSH aliases) belong strictly in `PRIVATE.md` in the repository root.
+
+- `PRIVATE.md` is strictly excluded by `.gitignore` and must **NEVER** be tracked or committed.
+- Agents and operators should inspect local `PRIVATE.md` for actual server targets and node names, but must keep all tracked repository files completely sanitized and generic.
 
 ### Golden Rules for Agents
 
-1. **Never commit plaintext secrets**: Passwords, API tokens, private SSH keys, TLS certificates, and decryption keys must **NEVER** appear in tracked Git files or commit history.
+1. **Never commit plaintext secrets or private identifiers**: Passwords, API tokens, private SSH keys, TLS certificates, actual server hostnames, and node names must **NEVER** appear in tracked Git files or commit history.
 2. **Respect `.gitignore`**:
+   - `PRIVATE.md` (and `*.private.md`) is strictly ignored.
    - `terraform/*/terraform.tfvars` (and any `*.tfvars`) is strictly ignored. Only create or update `*.tfvars.example` with sanitized placeholder values.
    - `ansible/inventory/hosts.ini` (and any `*.ini`) is strictly ignored. Use `hosts.ini.example` for documentation.
    - `.env` and `*.env` files are strictly ignored. Use `.env.example` for documentation.
@@ -33,7 +44,7 @@ This repository is intended to be both a Git repository and an active working di
 4. **Environment Variables & OpenTofu**:
    - Credentials can be passed via environment variables (`PROXMOX_VE_API_TOKEN`, `PROXMOX_VE_ENDPOINT`) or via local untracked `terraform.tfvars`.
 5. **Always inspect before committing**:
-   - Run `git status` and `git diff --staged` before every commit to ensure no `.env`, private keys, or credentials are accidentally staged.
+   - Run `git status` and `git diff --staged` before every commit to ensure no `.env`, `PRIVATE.md`, private keys, hostnames, or credentials are accidentally staged.
 
 ---
 
@@ -44,6 +55,7 @@ This repository is intended to be both a Git repository and an active working di
 ├── .env.example                       # Template for local environment variables
 ├── .gitignore                         # Strict exclusion of secrets, state, and caches
 ├── AGENTS.md                          # Agent rules and repository guidance
+├── PRIVATE.md                         # Private operational details (gitignored)
 ├── README.md                          # Human-oriented overview and setup instructions
 ├── docs/                              # Project documentation
 │   ├── potential_security_issues.md   # Security notices
@@ -88,3 +100,23 @@ This repository is intended to be both a Git repository and an active working di
 3. **Keep Changes Minimal**:
    - Make small, focused edits. Do not refactor unrelated playbooks or configurations.
    - Preserve comments, structure, and existing formatting.
+
+---
+
+## 5. Deployment Workflow (Server-First Execution)
+
+All live infrastructure commands and OpenTofu state reside exclusively on the target server in `/srv/admin`:
+
+1. **Develop**: Edit configurations and documentation locally on your workstation.
+2. **Verify**: Ensure pre-commit checks pass and no secrets or private data are staged.
+3. **Push**: Push commits to GitHub (`git push origin main`).
+4. **Deploy on the target server**:
+   - Connect to the server via SSH (`ssh <server>` from `PRIVATE.md`).
+   - Pull the latest commits: `cd /srv/admin && git pull origin main`.
+   - Apply OpenTofu or Ansible changes on the server:
+
+     ```bash
+     cd /srv/admin/terraform/<stack>
+     tofu plan
+     tofu apply
+     ```

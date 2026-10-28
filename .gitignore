@@ -11,6 +11,8 @@ Thumbs.db
 .env
 .env.*
 !.env.example
+PRIVATE.md
+*.private.md
 *.key
 *.pem
 id_rsa*

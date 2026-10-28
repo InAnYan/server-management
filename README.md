@@ -91,10 +91,10 @@ Protection is enforced by multiple defensive layers:
    # Edit ansible/group_vars/all/secrets.yml with your actual server passwords / keys
    ```
 
-4. Enable Git pre-commit hook:
+4. Enable pre-commit hooks:
 
    ```bash
-   git config core.hooksPath .githooks
+   pre-commit install
    ```
 
 ### 3. Usage

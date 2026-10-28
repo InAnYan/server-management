@@ -49,6 +49,7 @@ Protection is enforced by multiple defensive layers:
 | Secret Type | Local File (Gitignored) | Tracked Template |
 | :--- | :--- | :--- |
 | **Proxmox API Credentials** | `terraform/*/terraform.tfvars`, `.env` | `terraform/*/terraform.tfvars.example`, `.env.example` |
+| **Ansible Inventory (Host IPs)** | `ansible/inventory/hosts.ini` | `ansible/inventory/hosts.ini.example` |
 | **Ansible Passwords & Keys** | `ansible/group_vars/all/secrets.yml` | `ansible/group_vars/all/secrets.yml.example` |
 | **SSH Private Keys** | `~/.ssh/` | Never stored in repository |
 
@@ -84,9 +85,14 @@ Protection is enforced by multiple defensive layers:
    cp terraform/uptime-kuma/terraform.tfvars.example terraform/uptime-kuma/terraform.tfvars
    ```
 
-3. For Ansible secrets (local plaintext, gitignored):
+3. For Ansible inventory & secrets (local plaintext, gitignored):
 
    ```bash
+   # Copy inventory template
+   cp ansible/inventory/hosts.ini.example ansible/inventory/hosts.ini
+   # Edit ansible/inventory/hosts.ini with your actual server IP and user
+
+   # Copy secrets template
    cp ansible/group_vars/all/secrets.yml.example ansible/group_vars/all/secrets.yml
    # Edit ansible/group_vars/all/secrets.yml with your actual server passwords / keys
    ```

@@ -43,6 +43,11 @@ ansible/*.retry
 *vault_pass*
 *vault-pass*
 *.vault_password
+# Ansible inventory with real host IPs (local only - never commit)
+ansible/inventory/hosts.ini
+ansible/inventory/*.ini
+!ansible/inventory/hosts.ini.example
+!ansible/inventory/*.example
 # Unencrypted Ansible secret files (never commit)
 ansible/**/vault.yml
 ansible/**/secrets.yml

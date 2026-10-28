@@ -25,6 +25,7 @@ This repository is intended to be both a Git repository and an active working di
 1. **Never commit plaintext secrets**: Passwords, API tokens, private SSH keys, TLS certificates, and decryption keys must **NEVER** appear in tracked Git files or commit history.
 2. **Respect `.gitignore`**:
    - `terraform/*/terraform.tfvars` (and any `*.tfvars`) is strictly ignored. Only create or update `*.tfvars.example` with sanitized placeholder values.
+   - `ansible/inventory/hosts.ini` (and any `*.ini`) is strictly ignored. Use `hosts.ini.example` for documentation.
    - `.env` and `*.env` files are strictly ignored. Use `.env.example` for documentation.
    - `.vault_pass` and SSH private keys (`id_rsa`, `id_ed25519`) are strictly ignored.
 3. **Ansible Secrets Policy**:
@@ -67,7 +68,7 @@ This repository is intended to be both a Git repository and an active working di
 └── ansible/                           # Server configuration & state
     ├── ansible.cfg                    # Ansible configuration
     ├── inventory/
-    │   └── hosts.ini                  # Inventory definition
+    │   └── hosts.ini.example          # Inventory template (hosts.ini is gitignored)
     ├── group_vars/                    # Group-level variables
     │   └── all/
     │       └── vault.yml.example      # Example encrypted variable structure

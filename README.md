@@ -25,9 +25,13 @@ Bare-bones infrastructure repository for managing Proxmox VE servers, virtual ma
  └───────────────────────────────────────────┘
 ```
 
-- **`opentofu/vms/`** (or `terraform/vms/`): Generic Proxmox VM management.
-- **`opentofu/uptime-kuma/`** (or `terraform/uptime-kuma/`): Dedicated stack for Uptime Kuma monitoring service.
+- **`terraform/server_setup/`**: Base Proxmox host setup, bridges, and storage.
+- **`terraform/vms/`**: Generic Proxmox VM management.
+- **`terraform/uptime-kuma/`**: Dedicated stack for Uptime Kuma monitoring service.
 - **`ansible/`**: Base configuration, package installations, and system hardening.
+
+> [!NOTE]
+> All infrastructure provisioning folders use `terraform/` naming, and execution is handled internally via **OpenTofu** (`tofu init`, `tofu plan`, `tofu apply`). An `opentofu` symlink is maintained for backwards compatibility.
 
 ---
 
@@ -67,14 +71,17 @@ Protection is enforced by multiple defensive layers:
    cp .env.example .env
    ```
 
-2. For OpenTofu / Terraform stacks, create your local variables:
+2. For Terraform stacks, create your local variables:
 
    ```bash
+   # For Server Setup stack
+   cp terraform/server_setup/terraform.tfvars.example terraform/server_setup/terraform.tfvars
+
    # For VMs stack
-   cp opentofu/vms/terraform.tfvars.example opentofu/vms/terraform.tfvars
-   
+   cp terraform/vms/terraform.tfvars.example terraform/vms/terraform.tfvars
+
    # For Uptime Kuma stack
-   cp opentofu/uptime-kuma/terraform.tfvars.example opentofu/uptime-kuma/terraform.tfvars
+   cp terraform/uptime-kuma/terraform.tfvars.example terraform/uptime-kuma/terraform.tfvars
    ```
 
 3. For Ansible secrets (local plaintext, gitignored):
@@ -92,17 +99,23 @@ Protection is enforced by multiple defensive layers:
 
 ### 3. Usage
 
-#### Provisioning (OpenTofu / Terraform)
+#### Provisioning (OpenTofu)
 
 ```bash
+# Provision base server setup:
+cd terraform/server_setup
+tofu init
+tofu plan
+tofu apply
+
 # Provision generic VMs:
-cd opentofu/vms          # or: cd terraform/vms
+cd terraform/vms
 tofu init
 tofu plan
 tofu apply
 
 # Provision Uptime Kuma:
-cd opentofu/uptime-kuma  # or: cd terraform/uptime-kuma
+cd terraform/uptime-kuma
 tofu init
 tofu plan
 tofu apply

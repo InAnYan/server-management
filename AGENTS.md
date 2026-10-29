@@ -62,6 +62,7 @@ All machine-specific identifiers (such as target server hostnames, node names, i
 │   ├── idea.md                        # High-level architecture overview
 │   ├── networking.md                  # Host networking and firewall architecture
 │   ├── potential_security_issues.md   # Security notices
+│   ├── security_rotation_plan.md      # Credential and key rotation guide
 │   └── server_setup.md                # Server bootstrap guide
 ├── terraform/                         # Infrastructure provisioning (OpenTofu)
 │   ├── server_setup/                  # Base Proxmox host setup & networking

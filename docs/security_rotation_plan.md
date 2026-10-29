@@ -3,4 +3,5 @@
 1. Change root password
 2. Change administrator passwords
 3. Change administrator SSH keys
-4. Change Proxmox API key
+4. Change host-managed Proxmox API key
+5. Change git-managed Proxmox API key

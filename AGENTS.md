@@ -58,6 +58,9 @@ All machine-specific identifiers (such as target server hostnames, node names, i
 ├── PRIVATE.md                         # Private operational details (gitignored)
 ├── README.md                          # Human-oriented overview and setup instructions
 ├── docs/                              # Project documentation
+│   ├── decisions/                     # Architectural Decision Records (MADR)
+│   ├── idea.md                        # High-level architecture overview
+│   ├── networking.md                  # Host networking and firewall architecture
 │   ├── potential_security_issues.md   # Security notices
 │   └── server_setup.md                # Server bootstrap guide
 ├── terraform/                         # Infrastructure provisioning (OpenTofu)

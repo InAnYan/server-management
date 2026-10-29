@@ -1,6 +1,9 @@
 # Server Management Infrastructure
 
-Bare-bones infrastructure repository for managing Proxmox VE servers, virtual machines, and containers using **OpenTofu** (provisioning) and **Ansible** (configuration management).
+Bare-bones infrastructure repository for managing a Proxmox VE server with **only 1 public IP address**, provisioning virtual machines and containers using **OpenTofu** and managing configurations with **Ansible**.
+
+> [!NOTE]
+> **Single Public IP Constraint**: This repository is specifically architected for a server with **a single public IP address**. Because additional public IPs are not available, administrative access (SSH, Proxmox Web GUI) is isolated to an encrypted Tailscale mesh network, while internal VMs and containers route egress through a local bridge and expose web services via a shared reverse proxy.
 
 ---
 

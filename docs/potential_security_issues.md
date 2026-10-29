@@ -4,6 +4,8 @@
 
 - Unencrypted Terraform secrets
 - Unencrypted Ansible secrets
+- Devices between networks can freely talk to each other (security is hardened using VNETs and firewall rules, but misconfiguration remains a risk)
+- Overflow in IP range or machine ID
 
 ## General Potential Issues
 

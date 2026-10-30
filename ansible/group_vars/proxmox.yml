@@ -1,0 +1,12 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ansible/ansible-lint/main/src/ansiblelint/schemas/ansible.json
+---
+host_port_forwards:
+  - name: caddy-ingress
+    protocol: tcp
+    host_ports:
+      - 80
+      - 443
+    dest_ip: "10.10.1.10"
+    interfaces:
+      - vmbr0
+      - tailscale0

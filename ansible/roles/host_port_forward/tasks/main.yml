@@ -1,0 +1,59 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ansible/ansible-lint/main/src/ansiblelint/schemas/ansible.json
+---
+- name: Ensure IPv4 forwarding is enabled
+  ansible.posix.sysctl:
+    name: net.ipv4.ip_forward
+    value: "1"
+    state: present
+    reload: true
+  tags:
+    - host_port_forward
+
+- name: Allow routing to localnet for host-originated connections
+  ansible.posix.sysctl:
+    name: net.ipv4.conf.all.route_localnet
+    value: "1"
+    state: present
+    reload: true
+  tags:
+    - host_port_forward
+
+- name: Configure persistent port forwarding in /etc/network/interfaces
+  ansible.builtin.blockinfile:
+    path: /etc/network/interfaces
+    marker: "# {mark} ANSIBLE MANAGED PORT FORWARDS"
+    block: |
+      {% for rule in host_port_forwards %}
+      # {{ rule.name }}
+      {% set proto = rule.protocol | default('tcp') %}
+      {% set ports = rule.host_ports | join(',') %}
+      {% set target = rule.dest_ip ~ (':' ~ rule.dest_port if rule.dest_port is defined else '') %}
+      {% set ifaces = rule.interfaces | default([rule.interface | default('vmbr0')]) %}
+      {% for iface in ifaces %}
+      post-up iptables -t nat -C PREROUTING -i {{ iface }} -p {{ proto }} -m multiport --dports {{ ports }} -j DNAT --to-destination {{ target }} 2>/dev/null || iptables -t nat -A PREROUTING -i {{ iface }} -p {{ proto }} -m multiport --dports {{ ports }} -j DNAT --to-destination {{ target }}
+      post-down iptables -t nat -D PREROUTING -i {{ iface }} -p {{ proto }} -m multiport --dports {{ ports }} -j DNAT --to-destination {{ target }} 2>/dev/null || true
+      post-up iptables -C FORWARD -i {{ iface }} -p {{ proto }} -d {{ rule.dest_ip }} -m multiport --dports {{ rule.dest_port | default(ports) }} -j ACCEPT 2>/dev/null || iptables -A FORWARD -i {{ iface }} -p {{ proto }} -d {{ rule.dest_ip }} -m multiport --dports {{ rule.dest_port | default(ports) }} -j ACCEPT
+      post-down iptables -D FORWARD -i {{ iface }} -p {{ proto }} -d {{ rule.dest_ip }} -m multiport --dports {{ rule.dest_port | default(ports) }} -j ACCEPT 2>/dev/null || true
+      {% endfor %}
+      {% endfor %}
+  tags:
+    - host_port_forward
+
+- name: Apply port forwarding rules immediately to active kernel
+  ansible.builtin.shell: |
+    {% for rule in host_port_forwards %}
+    {% set proto = rule.protocol | default('tcp') %}
+    {% set ports = rule.host_ports | join(',') %}
+    {% set target = rule.dest_ip ~ (':' ~ rule.dest_port if rule.dest_port is defined else '') %}
+    {% set ifaces = rule.interfaces | default([rule.interface | default('vmbr0')]) %}
+    {% for iface in ifaces %}
+    iptables -t nat -C PREROUTING -i {{ iface }} -p {{ proto }} -m multiport --dports {{ ports }} -j DNAT --to-destination {{ target }} 2>/dev/null || \
+    iptables -t nat -A PREROUTING -i {{ iface }} -p {{ proto }} -m multiport --dports {{ ports }} -j DNAT --to-destination {{ target }}
+
+    iptables -C FORWARD -i {{ iface }} -p {{ proto }} -d {{ rule.dest_ip }} -m multiport --dports {{ rule.dest_port | default(ports) }} -j ACCEPT 2>/dev/null || \
+    iptables -A FORWARD -i {{ iface }} -p {{ proto }} -d {{ rule.dest_ip }} -m multiport --dports {{ rule.dest_port | default(ports) }} -j ACCEPT
+    {% endfor %}
+    {% endfor %}
+  changed_when: false
+  tags:
+    - host_port_forward

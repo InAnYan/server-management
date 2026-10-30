@@ -33,3 +33,12 @@
     - role: caddy
       tags:
         - caddy
+
+- name: Configure Proxmox host port forwarding
+  hosts: proxmox
+  become: true
+  roles:
+    - role: host_port_forward
+      tags:
+        - host_port_forward
+        - networking

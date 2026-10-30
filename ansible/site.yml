@@ -2,7 +2,7 @@
 # Main VM configuration playbook
 
 - name: Apply baseline configuration to all VMs
-  hosts: all
+  hosts: all:!proxmox
   become: true
   roles:
     - role: common
@@ -10,7 +10,7 @@
         - common
 
 - name: Configure Docker container runtime
-  hosts: docker_hosts
+  hosts: docker_hosts:!proxmox
   become: true
   roles:
     - role: docker
@@ -18,7 +18,7 @@
         - docker
 
 - name: Configure Infisical secrets client
-  hosts: infisical_hosts
+  hosts: infisical_hosts:!proxmox
   become: true
   roles:
     - role: infisical

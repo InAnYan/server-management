@@ -5,3 +5,5 @@
 3. Change administrator SSH keys
 4. Change host-managed Proxmox API key
 5. Change git-managed Proxmox API key
+6. Change Ansible SSH key for VMs
+7. Change Admin SSH key for VMs

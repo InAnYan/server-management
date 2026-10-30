@@ -88,7 +88,7 @@ resource "proxmox_sdn_zone_simple" "local" {
 resource "proxmox_sdn_vnet" "vcoord" {
   id    = "vcoord"
   zone  = proxmox_sdn_zone_simple.local.id
-  alias = "core-coordinator"
+  alias = "vnet-core-coord"
 }
 
 resource "proxmox_sdn_subnet" "vcoord_subnet" {
@@ -102,7 +102,7 @@ resource "proxmox_sdn_subnet" "vcoord_subnet" {
 resource "proxmox_sdn_vnet" "vcore" {
   id    = "vcore"
   zone  = proxmox_sdn_zone_simple.local.id
-  alias = "core-apps"
+  alias = "vnet-core-app"
 }
 
 resource "proxmox_sdn_subnet" "vcore_subnet" {
@@ -116,7 +116,7 @@ resource "proxmox_sdn_subnet" "vcore_subnet" {
 resource "proxmox_sdn_vnet" "vcdb" {
   id    = "vcdb"
   zone  = proxmox_sdn_zone_simple.local.id
-  alias = "core-db"
+  alias = "vnet-core-data"
 }
 
 resource "proxmox_sdn_subnet" "vcdb_subnet" {
@@ -130,7 +130,7 @@ resource "proxmox_sdn_subnet" "vcdb_subnet" {
 resource "proxmox_sdn_vnet" "vdev" {
   id    = "vdev"
   zone  = proxmox_sdn_zone_simple.local.id
-  alias = "dev-apps"
+  alias = "vnet-dev-app"
 }
 
 resource "proxmox_sdn_subnet" "vdev_subnet" {
@@ -144,7 +144,7 @@ resource "proxmox_sdn_subnet" "vdev_subnet" {
 resource "proxmox_sdn_vnet" "vddb" {
   id    = "vddb"
   zone  = proxmox_sdn_zone_simple.local.id
-  alias = "dev-db"
+  alias = "vnet-dev-data"
 }
 
 resource "proxmox_sdn_subnet" "vddb_subnet" {
@@ -158,7 +158,7 @@ resource "proxmox_sdn_subnet" "vddb_subnet" {
 resource "proxmox_sdn_vnet" "vprod" {
   id    = "vprod"
   zone  = proxmox_sdn_zone_simple.local.id
-  alias = "prod-apps"
+  alias = "vnet-prod-app"
 }
 
 resource "proxmox_sdn_subnet" "vprod_subnet" {
@@ -172,7 +172,7 @@ resource "proxmox_sdn_subnet" "vprod_subnet" {
 resource "proxmox_sdn_vnet" "vpdb" {
   id    = "vpdb"
   zone  = proxmox_sdn_zone_simple.local.id
-  alias = "prod-db"
+  alias = "vnet-prod-data"
 }
 
 resource "proxmox_sdn_subnet" "vpdb_subnet" {

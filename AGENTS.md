@@ -61,6 +61,7 @@ All machine-specific identifiers (such as target server hostnames, node names, i
 ├── docs/                              # Project documentation
 │   ├── decisions/                     # Architectural Decision Records (MADR)
 │   ├── idea.md                        # High-level architecture overview
+│   ├── naming.md                      # Naming conventions & machine ID allocations
 │   ├── networking.md                  # Host networking and firewall architecture
 │   ├── potential_security_issues.md   # Security notices
 │   ├── security_rotation_plan.md      # Credential and key rotation guide

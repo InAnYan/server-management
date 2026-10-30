@@ -1,31 +1,32 @@
 # Example inventory template (hosts.ini is gitignored)
+# Hostnames follow <category>-<subcategory>-<name> per docs/naming.md
 
 [proxmox]
 # proxmox-node-01 ansible_host=100.64.0.1 ansible_user=root
 
-# Tiered VM groups matching docs/networking.md
+# Tiered VM groups matching docs/networking.md and docs/naming.md
 [core_coordinators]
-# gitea-01     ansible_host=10.10.1.10
-# caddy-01     ansible_host=10.10.1.11
+# core-coord-gitea    ansible_host=10.10.1.10
+# core-coord-caddy    ansible_host=10.10.1.11
 
 [core_apps]
-# technitium-01 ansible_host=10.11.0.10
-# uptime-kuma-01 ansible_host=10.11.0.11
+# core-app-technitium ansible_host=10.11.0.10
+# core-app-uptimekuma ansible_host=10.11.0.11
 
 [core_databases]
-# core-db-01   ansible_host=10.10.2.10
+# core-data-postgres  ansible_host=10.10.2.10
 
 [dev_apps]
-# dev-app-01   ansible_host=10.21.0.10
+# dev-app-web         ansible_host=10.21.0.10
 
 [dev_databases]
-# dev-db-01    ansible_host=10.20.2.10
+# dev-data-postgres   ansible_host=10.20.2.10
 
 [prod_apps]
-# prod-app-01  ansible_host=10.32.0.10
+# prod-app-web        ansible_host=10.32.0.10
 
 [prod_databases]
-# prod-db-01   ansible_host=10.30.2.10
+# prod-data-postgres  ansible_host=10.30.2.10
 
 # Role assignment groups
 [docker_hosts:children]

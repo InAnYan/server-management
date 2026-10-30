@@ -135,14 +135,4 @@ To align administrative boundaries with governance tiers, workloads are organize
 
 ## Machine ID (VMID / CT ID) Allocation
 
-To maintain predictability across provisioning tools and inventories, VM and container IDs follow dedicated numeric ranges:
-
-| Tier / Subnetwork | Machine ID Range (VMID / CT ID) |
-| :--- | :--- |
-| **Core Coordinators** | `1000` – `1499` |
-| **Core Apps** | `1500` – `1899` |
-| **Core Databases** | `1900` – `1999` |
-| **Dev Apps** | `2000` – `2899` |
-| **Dev Databases** | `2900` – `2999` |
-| **Prod Apps** | `3000` – `3899` |
-| **Prod Databases** | `3900` – `3999` |
+Machine IDs (VMID / CT ID) are allocated deterministically based on workload category and tier. For the complete allocation table and naming rules, see [docs/naming.md](naming.md#machine-id-vmid--ct-id).

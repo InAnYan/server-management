@@ -26,7 +26,7 @@ resource "proxmox_virtual_environment_download_file" "debian_cloud_image" {
 
 # 2. Test VM in Core Apps Network (10.11.0.0/16) in host-managed resource pool
 resource "proxmox_virtual_environment_vm" "testvm" {
-  name        = "testvm"
+  name        = "core-app-testvm"
   description = "Test VM in core apps network"
   node_name   = var.proxmox_node
   vm_id       = 1500

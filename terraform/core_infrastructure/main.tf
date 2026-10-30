@@ -45,16 +45,24 @@ resource "proxmox_virtual_environment_vm" "testvm" {
     type = "l26"
   }
 
+  scsi_hardware = "virtio-scsi-pci"
+
   disk {
     datastore_id = "local-lvm"
-    interface    = "virtio0"
+    interface    = "scsi0"
     iothread     = true
     discard      = "on"
     size         = 10
     import_from  = proxmox_virtual_environment_download_file.debian_cloud_image.id
   }
 
-  boot_order = ["virtio0"]
+  boot_order = ["scsi0"]
+
+  serial_device {}
+
+  vga {
+    type = "serial0"
+  }
 
   network_device {
     bridge = "vcore"

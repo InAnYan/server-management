@@ -24,39 +24,7 @@ resource "proxmox_virtual_environment_download_file" "debian_cloud_image" {
   file_name    = "debian-12-genericcloud-amd64.img"
 }
 
-# 2. Cloud-Init Snippet for Users & SSH Keys
-resource "proxmox_virtual_environment_file" "testvm_cloud_config" {
-  content_type = "snippets"
-  datastore_id = "local"
-  node_name    = var.proxmox_node
-
-  source_raw {
-    data = <<-EOF
-    #cloud-config
-    users:
-      - default
-      - name: ansible
-        gecos: Ansible Automation
-        sudo: ALL=(ALL) NOPASSWD:ALL
-        shell: /bin/bash
-        ssh_authorized_keys:
-          - ${trimspace(file("${path.root}/../../secrets/id_ansible.pub"))}
-      - name: admin
-        gecos: Admin Operator
-        sudo: ALL=(ALL) ALL
-        shell: /bin/bash
-        ssh_authorized_keys:
-          - ${trimspace(file("${path.root}/../../secrets/id_admin.pub"))}
-    chpasswd:
-      expire: false
-    package_update: false
-    package_upgrade: false
-    EOF
-    file_name = "testvm-cloud-config.yaml"
-  }
-}
-
-# 3. Test VM in Core Coordinator Network (10.10.1.0/24)
+# 2. Test VM in Core Coordinator Network (10.10.1.0/24)
 resource "proxmox_virtual_environment_vm" "testvm" {
   name        = "testvm"
   description = "Test VM in core coordinator network"
@@ -100,13 +68,19 @@ resource "proxmox_virtual_environment_vm" "testvm" {
   }
 
   initialization {
-    user_data_file_id = proxmox_virtual_environment_file.testvm_cloud_config.id
-
     ip_config {
       ipv4 {
         address = "10.10.1.10/24"
         gateway = "10.10.1.1"
       }
+    }
+
+    user_account {
+      username = "ansible"
+      keys = [
+        trimspace(file("${path.root}/../../secrets/id_ansible.pub")),
+        trimspace(file("${path.root}/../../secrets/id_admin.pub"))
+      ]
     }
   }
 }

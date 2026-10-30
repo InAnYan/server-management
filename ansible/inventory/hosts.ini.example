@@ -38,7 +38,16 @@ prod_apps
 [infisical_hosts:children]
 core_coordinators
 
-[all:vars]
+[vms:children]
+core_coordinators
+core_apps
+core_databases
+dev_apps
+dev_databases
+prod_apps
+prod_databases
+
+[vms:vars]
 ansible_user=ansible
 ansible_ssh_private_key_file=../secrets/id_ansible
 ansible_python_interpreter=/usr/bin/python3

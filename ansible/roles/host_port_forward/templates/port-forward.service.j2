@@ -1,0 +1,14 @@
+[Unit]
+Description=Port Forward Proxy for {{ rule.name }} (TCP {{ port }} to {{ rule.dest_ip }}:{{ rule.dest_port | default(port) }})
+Documentation=man:systemd-socket-proxyd(8)
+Requires=port-forward-{{ rule.name }}-{{ port }}.socket
+After=port-forward-{{ rule.name }}-{{ port }}.socket
+
+[Service]
+ExecStart=/lib/systemd/systemd-socket-proxyd {{ rule.dest_ip }}:{{ rule.dest_port | default(port) }}
+PrivateTmp=yes
+PrivateNetwork=no
+DynamicUser=yes
+
+[Install]
+WantedBy=multi-user.target

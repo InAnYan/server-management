@@ -9,63 +9,76 @@
   tags:
     - host_port_forward
 
-- name: Allow routing to localnet for host-originated connections
-  ansible.posix.sysctl:
-    name: net.ipv4.conf.all.route_localnet
-    value: "1"
-    state: present
-    reload: true
-  tags:
-    - host_port_forward
-
-- name: Configure persistent port forwarding in /etc/network/interfaces
+- name: Remove legacy iptables port forward block from /etc/network/interfaces
   ansible.builtin.blockinfile:
     path: /etc/network/interfaces
     marker: "# {mark} ANSIBLE MANAGED PORT FORWARDS"
-    block: |
-      post-up iptables -C FORWARD -m conntrack --ctstate ESTABLISHED,RELATED -j ACCEPT 2>/dev/null || iptables -I FORWARD 1 -m conntrack --ctstate ESTABLISHED,RELATED -j ACCEPT
-      {% for rule in host_port_forwards %}
-      # {{ rule.name }}
-      {% set proto = rule.protocol | default('tcp') %}
-      {% set ports = rule.host_ports | join(',') %}
-      {% set target = rule.dest_ip ~ (':' ~ rule.dest_port if rule.dest_port is defined else '') %}
-      {% set ifaces = rule.interfaces | default([rule.interface | default('vmbr0')]) %}
-      {% for iface in ifaces %}
-      post-up iptables -t nat -C PREROUTING -i {{ iface }} -p {{ proto }} -m multiport --dports {{ ports }} -j DNAT --to-destination {{ target }} 2>/dev/null || iptables -t nat -I PREROUTING 1 -i {{ iface }} -p {{ proto }} -m multiport --dports {{ ports }} -j DNAT --to-destination {{ target }}
-      post-down iptables -t nat -D PREROUTING -i {{ iface }} -p {{ proto }} -m multiport --dports {{ ports }} -j DNAT --to-destination {{ target }} 2>/dev/null || true
-      post-up iptables -C FORWARD -i {{ iface }} -p {{ proto }} -d {{ rule.dest_ip }} -m multiport --dports {{ rule.dest_port | default(ports) }} -j ACCEPT 2>/dev/null || iptables -I FORWARD 2 -i {{ iface }} -p {{ proto }} -d {{ rule.dest_ip }} -m multiport --dports {{ rule.dest_port | default(ports) }} -j ACCEPT
-      post-down iptables -D FORWARD -i {{ iface }} -p {{ proto }} -d {{ rule.dest_ip }} -m multiport --dports {{ rule.dest_port | default(ports) }} -j ACCEPT 2>/dev/null || true
-      {% endfor %}
-      {% endfor %}
+    state: absent
   tags:
     - host_port_forward
 
-- name: Apply port forwarding rules immediately to active kernel
+- name: Flush legacy iptables port forwarding rules from active kernel
   ansible.builtin.shell: |
-    # Clean up any stale MASQUERADE rules that broke return routing
-    {% for rule in host_port_forwards %}
-    {% set proto = rule.protocol | default('tcp') %}
-    {% set ports = rule.host_ports | join(',') %}
-    while iptables -t nat -D POSTROUTING -d {{ rule.dest_ip }} -p {{ proto }} -m multiport --dports {{ rule.dest_port | default(ports) }} -j MASQUERADE 2>/dev/null; do :; done
-    {% endfor %}
-
-    # Ensure return packet tracking is at the top of FORWARD chain
-    while iptables -D FORWARD -m conntrack --ctstate ESTABLISHED,RELATED -j ACCEPT 2>/dev/null; do :; done
-    iptables -I FORWARD 1 -m conntrack --ctstate ESTABLISHED,RELATED -j ACCEPT
-
     {% for rule in host_port_forwards %}
     {% set proto = rule.protocol | default('tcp') %}
     {% set ports = rule.host_ports | join(',') %}
     {% set target = rule.dest_ip ~ (':' ~ rule.dest_port if rule.dest_port is defined else '') %}
     {% set ifaces = rule.interfaces | default([rule.interface | default('vmbr0')]) %}
     {% for iface in ifaces %}
-    iptables -t nat -C PREROUTING -i {{ iface }} -p {{ proto }} -m multiport --dports {{ ports }} -j DNAT --to-destination {{ target }} 2>/dev/null || \
-    iptables -t nat -I PREROUTING 1 -i {{ iface }} -p {{ proto }} -m multiport --dports {{ ports }} -j DNAT --to-destination {{ target }}
-
-    iptables -C FORWARD -i {{ iface }} -p {{ proto }} -d {{ rule.dest_ip }} -m multiport --dports {{ rule.dest_port | default(ports) }} -j ACCEPT 2>/dev/null || \
-    iptables -I FORWARD 2 -i {{ iface }} -p {{ proto }} -d {{ rule.dest_ip }} -m multiport --dports {{ rule.dest_port | default(ports) }} -j ACCEPT
+    while iptables -t nat -D PREROUTING -i {{ iface }} -p {{ proto }} -m multiport --dports {{ ports }} -j DNAT --to-destination {{ target }} 2>/dev/null; do :; done
+    while iptables -D FORWARD -i {{ iface }} -p {{ proto }} -d {{ rule.dest_ip }} -m multiport --dports {{ rule.dest_port | default(ports) }} -j ACCEPT 2>/dev/null; do :; done
+    while iptables -t nat -D POSTROUTING -d {{ rule.dest_ip }} -p {{ proto }} -m multiport --dports {{ rule.dest_port | default(ports) }} -j MASQUERADE 2>/dev/null; do :; done
     {% endfor %}
     {% endfor %}
   changed_when: false
+  tags:
+    - host_port_forward
+
+- name: Deploy systemd socket proxy units
+  ansible.builtin.template:
+    src: port-forward.socket.j2
+    dest: "/etc/systemd/system/port-forward-{{ item.0.name }}-{{ item.1 }}.socket"
+    owner: root
+    group: root
+    mode: "0644"
+  loop: "{{ host_port_forwards | subelements('host_ports') }}"
+  loop_control:
+    loop_var: item
+  vars:
+    rule: "{{ item.0 }}"
+    port: "{{ item.1 }}"
+  tags:
+    - host_port_forward
+
+- name: Deploy systemd service proxy units
+  ansible.builtin.template:
+    src: port-forward.service.j2
+    dest: "/etc/systemd/system/port-forward-{{ item.0.name }}-{{ item.1 }}.service"
+    owner: root
+    group: root
+    mode: "0644"
+  loop: "{{ host_port_forwards | subelements('host_ports') }}"
+  loop_control:
+    loop_var: item
+  vars:
+    rule: "{{ item.0 }}"
+    port: "{{ item.1 }}"
+  tags:
+    - host_port_forward
+
+- name: Reload systemd daemon
+  ansible.builtin.systemd:
+    daemon_reload: true
+  tags:
+    - host_port_forward
+
+- name: Enable and start systemd socket proxy units
+  ansible.builtin.systemd:
+    name: "port-forward-{{ item.0.name }}-{{ item.1 }}.socket"
+    enabled: true
+    state: started
+  loop: "{{ host_port_forwards | subelements('host_ports') }}"
+  loop_control:
+    loop_var: item
   tags:
     - host_port_forward

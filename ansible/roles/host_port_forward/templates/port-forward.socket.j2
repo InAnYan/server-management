@@ -1,0 +1,10 @@
+[Unit]
+Description=Port Forward Socket for {{ rule.name }} (TCP {{ port }})
+Documentation=man:systemd-socket-proxyd(8)
+
+[Socket]
+ListenStream=0.0.0.0:{{ port }}
+Accept=no
+
+[Install]
+WantedBy=sockets.target

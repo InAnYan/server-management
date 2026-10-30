@@ -1,5 +1,14 @@
-# Outputs for provisioned VMs
-# output "vm_ip" {
-#   description = "IP address of the VM"
-#   value       = proxmox_virtual_environment_vm.example_vm.ipv4_addresses
-# }
+output "vm_id" {
+  description = "VMID of testvm"
+  value       = proxmox_virtual_environment_vm.testvm.vm_id
+}
+
+output "vm_name" {
+  description = "Name of the VM"
+  value       = proxmox_virtual_environment_vm.testvm.name
+}
+
+output "vm_ip" {
+  description = "Static IP address configured for testvm"
+  value       = "10.10.1.10"
+}

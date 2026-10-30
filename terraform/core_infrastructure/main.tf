@@ -93,7 +93,8 @@ resource "proxmox_virtual_environment_vm" "caddy" {
 }
 
 resource "proxmox_virtual_environment_firewall_rules" "caddy_rules" {
-  vm_id = proxmox_virtual_environment_vm.caddy.vm_id
+  node_name = var.proxmox_node
+  vm_id     = proxmox_virtual_environment_vm.caddy.vm_id
 
   rule {
     type    = "in"

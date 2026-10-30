@@ -1,3 +1,4 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ansible/ansible-lint/main/src/ansiblelint/schemas/ansible.json
 ---
 - name: Ensure keyrings directory exists
   ansible.builtin.file:
@@ -11,7 +12,7 @@
 
 - name: Download Infisical official GPG key
   ansible.builtin.get_url:
-    url: https://dl.cloudsmith.io/public/infisical/infisical-cli/gpg.key
+    url: https://artifacts-cli.infisical.com/infisical.gpg
     dest: /etc/apt/keyrings/infisical.asc
     mode: "0644"
     force: false
@@ -20,7 +21,7 @@
 
 - name: Add Infisical APT repository
   ansible.builtin.apt_repository:
-    repo: "deb [signed-by=/etc/apt/keyrings/infisical.asc] https://dl.cloudsmith.io/public/infisical/infisical-cli/deb/debian any-version main"
+    repo: "deb [arch=amd64 signed-by=/etc/apt/keyrings/infisical.asc] https://artifacts-cli.infisical.com/deb stable main"
     state: present
     filename: infisical
   tags:

@@ -1,0 +1,62 @@
+---
+- name: Set system timezone
+  community.general.timezone:
+    name: "{{ common_timezone }}"
+  tags:
+    - common
+    - timezone
+
+- name: Ensure SSH configuration drop-in directory exists
+  ansible.builtin.file:
+    path: /etc/ssh/sshd_config.d
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+  tags:
+    - common
+    - ssh
+
+- name: Harden SSH daemon (disable password authentication)
+  ansible.builtin.copy:
+    dest: /etc/ssh/sshd_config.d/01-hardening.conf
+    content: |
+      # Managed by Ansible - do not edit manually
+      PasswordAuthentication no
+      KbdInteractiveAuthentication no
+      PermitRootLogin prohibit-password
+      PubkeyAuthentication yes
+    owner: root
+    group: root
+    mode: "0644"
+  notify: Restart ssh
+  tags:
+    - common
+    - ssh
+
+- name: Update apt cache and upgrade system packages
+  ansible.builtin.apt:
+    update_cache: true
+    cache_valid_time: 3600
+    upgrade: dist
+  tags:
+    - common
+    - upgrade
+
+- name: Install essential baseline packages
+  ansible.builtin.apt:
+    name: "{{ common_packages }}"
+    state: present
+  tags:
+    - common
+    - packages
+
+- name: Ensure qemu-guest-agent service is started and enabled
+  ansible.builtin.systemd:
+    name: qemu-guest-agent
+    state: started
+    enabled: true
+  when: "'qemu-guest-agent' in common_packages"
+  tags:
+    - common
+    - packages

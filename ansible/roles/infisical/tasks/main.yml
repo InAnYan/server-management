@@ -1,0 +1,35 @@
+---
+- name: Ensure keyrings directory exists
+  ansible.builtin.file:
+    path: /etc/apt/keyrings
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+  tags:
+    - infisical
+
+- name: Download Infisical official GPG key
+  ansible.builtin.get_url:
+    url: https://dl.cloudsmith.io/public/infisical/infisical-cli/gpg.key
+    dest: /etc/apt/keyrings/infisical.asc
+    mode: "0644"
+    force: false
+  tags:
+    - infisical
+
+- name: Add Infisical APT repository
+  ansible.builtin.apt_repository:
+    repo: "deb [signed-by=/etc/apt/keyrings/infisical.asc] https://dl.cloudsmith.io/public/infisical/infisical-cli/deb/debian any-version main"
+    state: present
+    filename: infisical
+  tags:
+    - infisical
+
+- name: Install Infisical CLI package
+  ansible.builtin.apt:
+    name: "{{ infisical_package }}"
+    state: present
+    update_cache: true
+  tags:
+    - infisical

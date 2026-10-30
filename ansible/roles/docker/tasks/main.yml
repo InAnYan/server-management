@@ -1,0 +1,62 @@
+---
+- name: Ensure keyrings directory exists
+  ansible.builtin.file:
+    path: /etc/apt/keyrings
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+  tags:
+    - docker
+
+- name: Download Docker official GPG key
+  ansible.builtin.get_url:
+    url: https://download.docker.com/linux/debian/gpg
+    dest: /etc/apt/keyrings/docker.asc
+    mode: "0644"
+    force: false
+  tags:
+    - docker
+
+- name: Add Docker APT repository
+  ansible.builtin.apt_repository:
+    repo: "deb [arch=amd64 signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/debian {{ ansible_distribution_release }} stable"
+    state: present
+    filename: docker
+  tags:
+    - docker
+
+- name: Install Docker and Docker Compose packages
+  ansible.builtin.apt:
+    name: "{{ docker_packages }}"
+    state: present
+    update_cache: true
+  tags:
+    - docker
+
+- name: Ensure docker group exists
+  ansible.builtin.group:
+    name: docker
+    state: present
+  tags:
+    - docker
+
+- name: Add operational users to docker group
+  ansible.builtin.user:
+    name: "{{ item }}"
+    groups: docker
+    append: true
+  loop: "{{ docker_users }}"
+  tags:
+    - docker
+
+- name: Ensure Docker and containerd services are running and enabled
+  ansible.builtin.systemd:
+    name: "{{ item }}"
+    state: started
+    enabled: true
+  loop:
+    - containerd
+    - docker
+  tags:
+    - docker

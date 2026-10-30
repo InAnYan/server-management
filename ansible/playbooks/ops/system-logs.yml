@@ -1,0 +1,32 @@
+---
+- name: Query system and service logs
+  hosts: "{{ target | default('all') }}"
+  become: true
+  gather_facts: false
+  vars:
+    unit: "{{ service | default('') }}"
+    lines: "{{ tail | default(50) }}"
+  tasks:
+    - name: Query journalctl logs for specific systemd unit
+      ansible.builtin.command:
+        cmd: "journalctl -u {{ unit }} -n {{ lines }} --no-pager"
+      register: service_logs
+      when: unit != ''
+      changed_when: false
+
+    - name: Query system-wide journal logs
+      ansible.builtin.command:
+        cmd: "journalctl -n {{ lines }} --no-pager"
+      register: system_logs
+      when: unit == ''
+      changed_when: false
+
+    - name: Display service logs
+      ansible.builtin.debug:
+        var: service_logs.stdout_lines
+      when: unit != ''
+
+    - name: Display system logs
+      ansible.builtin.debug:
+        var: system_logs.stdout_lines
+      when: unit == ''

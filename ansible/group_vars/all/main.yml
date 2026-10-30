@@ -1,0 +1,33 @@
+---
+# Global configuration variables for all VMs
+
+# System Timezone
+system_timezone: "UTC"
+
+# Essential baseline packages for Debian cloud images
+essential_packages:
+  # Proxmox integration (clean shutdown, IP discovery, ballooning)
+  - qemu-guest-agent
+  # Network & transfer utilities
+  - curl
+  - ca-certificates
+  - gnupg
+  - rsync
+  - dnsutils
+  - iproute2
+  - net-tools
+  # Administration & debugging tools
+  - sudo
+  - htop
+  - tmux
+  - ncdu
+  - jq
+  - unzip
+  - vim
+  - nano
+  # Firewall baseline
+  - ufw
+
+# Feature flags for optional roles (can be overridden per host/group in inventory or host_vars)
+enable_docker: false
+enable_infisical: false

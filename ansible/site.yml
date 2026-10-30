@@ -1,7 +1,32 @@
 ---
-- name: Base server configuration
-  hosts: servers
+# Main VM configuration playbook
+
+- name: Apply baseline configuration to all VMs
+  hosts: all
+  become: true
+  roles:
+    - role: common
+      tags:
+        - common
+
+- name: Configure Docker container runtime
+  hosts: all
   become: true
   tasks:
-    - name: Ping hosts
-      ansible.builtin.ping:
+    - name: Apply Docker role conditionally
+      ansible.builtin.include_role:
+        name: docker
+      when: (enable_docker | default(false)) or ('docker_hosts' in group_names)
+      tags:
+        - docker
+
+- name: Configure Infisical secrets client
+  hosts: all
+  become: true
+  tasks:
+    - name: Apply Infisical role conditionally
+      ansible.builtin.include_role:
+        name: infisical
+      when: (enable_infisical | default(false)) or ('infisical_hosts' in group_names)
+      tags:
+        - infisical

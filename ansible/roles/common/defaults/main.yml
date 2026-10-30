@@ -1,0 +1,3 @@
+---
+common_timezone: "{{ system_timezone | default('UTC') }}"
+common_packages: "{{ essential_packages }}"

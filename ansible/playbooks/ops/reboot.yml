@@ -1,0 +1,10 @@
+---
+- name: Reboot target hosts safely
+  hosts: "{{ target | default('all') }}"
+  become: true
+  gather_facts: false
+  tasks:
+    - name: Reboot system and wait for connection recovery
+      ansible.builtin.reboot:
+        reboot_timeout: 300
+        post_reboot_delay: 10

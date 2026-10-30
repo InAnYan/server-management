@@ -1,8 +1,43 @@
-[proxmox]
-# pve-node-01 ansible_host=192.168.1.100 ansible_user=root
+# Example inventory template (hosts.ini is gitignored)
 
-[servers]
-# server-01 ansible_host=192.168.1.101 ansible_user=debian
+[proxmox]
+# proxmox-node-01 ansible_host=100.64.0.1 ansible_user=root
+
+# Tiered VM groups matching docs/networking.md
+[core_coordinators]
+# gitea-01     ansible_host=10.10.1.10 enable_docker=true enable_infisical=true
+# caddy-01     ansible_host=10.10.1.11 enable_docker=true enable_infisical=true
+
+[core_apps]
+# technitium-01 ansible_host=10.11.0.10 enable_docker=true
+# uptime-kuma-01 ansible_host=10.11.0.11 enable_docker=true
+
+[core_databases]
+# core-db-01   ansible_host=10.10.2.10 enable_docker=false
+
+[dev_apps]
+# dev-app-01   ansible_host=10.21.0.10 enable_docker=true
+
+[dev_databases]
+# dev-db-01    ansible_host=10.20.2.10 enable_docker=false
+
+[prod_apps]
+# prod-app-01  ansible_host=10.32.0.10 enable_docker=true
+
+[prod_databases]
+# prod-db-01   ansible_host=10.30.2.10 enable_docker=false
+
+# Role assignment groups
+[docker_hosts:children]
+core_coordinators
+core_apps
+dev_apps
+prod_apps
+
+[infisical_hosts:children]
+core_coordinators
 
 [all:vars]
+ansible_user=ansible
+ansible_ssh_private_key_file=../secrets/id_ansible
 ansible_python_interpreter=/usr/bin/python3

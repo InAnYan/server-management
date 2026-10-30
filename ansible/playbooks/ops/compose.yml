@@ -1,0 +1,44 @@
+---
+- name: Docker Compose operational tasks
+  hosts: "{{ target | default('docker_hosts') }}"
+  become: true
+  vars:
+    project_dir: "{{ dir }}"
+    action: "{{ state | default('up') }}" # up, down, restart, logs
+  tasks:
+    - name: Validate project directory argument
+      ansible.builtin.assert:
+        that:
+          - project_dir is defined
+        fail_msg: "Project directory must be specified: -e dir=/path/to/compose/dir"
+
+    - name: Stop Docker Compose stack (docker compose down)
+      community.docker.docker_compose_v2:
+        project_src: "{{ project_dir }}"
+        state: absent
+      when: action == 'down'
+
+    - name: Start Docker Compose stack detached (docker compose up -d)
+      community.docker.docker_compose_v2:
+        project_src: "{{ project_dir }}"
+        state: present
+      when: action == 'up'
+
+    - name: Restart Docker Compose stack
+      community.docker.docker_compose_v2:
+        project_src: "{{ project_dir }}"
+        state: restarted
+      when: action == 'restart'
+
+    - name: Retrieve Docker Compose logs
+      ansible.builtin.command:
+        cmd: "docker compose logs --tail {{ tail | default(100) }} {{ service | default('') }}"
+        chdir: "{{ project_dir }}"
+      register: compose_logs
+      when: action == 'logs'
+      changed_when: false
+
+    - name: Display retrieved Docker Compose logs
+      ansible.builtin.debug:
+        var: compose_logs.stdout_lines
+      when: action == 'logs'

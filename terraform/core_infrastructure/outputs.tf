@@ -10,5 +10,5 @@ output "vm_name" {
 
 output "vm_ip" {
   description = "Static IP address configured for testvm"
-  value       = "10.10.1.10"
+  value       = "10.11.0.10"
 }

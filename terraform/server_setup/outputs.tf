@@ -9,9 +9,8 @@ output "firewall_status" {
 output "resource_pools" {
   description = "Proxmox resource pools created"
   value = [
-    proxmox_virtual_environment_pool.core.pool_id,
-    proxmox_virtual_environment_pool.dev.pool_id,
-    proxmox_virtual_environment_pool.prod.pool_id,
+    proxmox_virtual_environment_pool.host_managed.pool_id,
+    proxmox_virtual_environment_pool.git_managed.pool_id,
   ]
 }
 

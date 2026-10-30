@@ -24,17 +24,13 @@ resource "proxmox_virtual_environment_download_file" "debian_cloud_image" {
   file_name    = "debian-12-genericcloud-amd64.qcow2"
 }
 
-# 2. Test VM in Core Coordinator Network (10.10.1.0/24)
+# 2. Test VM in Core Apps Network (10.11.0.0/16) in host-managed resource pool
 resource "proxmox_virtual_environment_vm" "testvm" {
   name        = "testvm"
-  description = "Test VM in core coordinator network"
+  description = "Test VM in core apps network"
   node_name   = var.proxmox_node
-  vm_id       = 1000
-  pool_id     = "core"
-
-  agent {
-    enabled = true
-  }
+  vm_id       = 1500
+  pool_id     = "host-managed"
 
   cpu {
     cores = 1
@@ -61,15 +57,15 @@ resource "proxmox_virtual_environment_vm" "testvm" {
   boot_order = ["virtio0"]
 
   network_device {
-    bridge = "vcoord"
+    bridge = "vcore"
     model  = "virtio"
   }
 
   initialization {
     ip_config {
       ipv4 {
-        address = "10.10.1.10/24"
-        gateway = "10.10.1.1"
+        address = "10.11.0.10/16"
+        gateway = "10.11.0.1"
       }
     }
 

@@ -68,19 +68,14 @@ resource "proxmox_virtual_environment_cluster_firewall" "cluster_firewall" {
 }
 
 # 3. Proxmox Resource Pools (docs/networking.md)
-resource "proxmox_virtual_environment_pool" "core" {
-  pool_id = "core"
-  comment = "Core coordinator and baseline services"
+resource "proxmox_virtual_environment_pool" "host_managed" {
+  pool_id = "host-managed"
+  comment = "Core coordinator and baseline services (managed on host)"
 }
 
-resource "proxmox_virtual_environment_pool" "dev" {
-  pool_id = "dev"
-  comment = "Development workloads"
-}
-
-resource "proxmox_virtual_environment_pool" "prod" {
-  pool_id = "prod"
-  comment = "Production workloads"
+resource "proxmox_virtual_environment_pool" "git_managed" {
+  pool_id = "git-managed"
+  comment = "Dev and Prod environments (managed via Git automation)"
 }
 
 # 4. Proxmox SDN (Software-Defined Networking)

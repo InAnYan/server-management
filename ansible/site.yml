@@ -10,23 +10,17 @@
         - common
 
 - name: Configure Docker container runtime
-  hosts: all
+  hosts: docker_hosts
   become: true
-  tasks:
-    - name: Apply Docker role conditionally
-      ansible.builtin.include_role:
-        name: docker
-      when: (enable_docker | default(false)) or ('docker_hosts' in group_names)
+  roles:
+    - role: docker
       tags:
         - docker
 
 - name: Configure Infisical secrets client
-  hosts: all
+  hosts: infisical_hosts
   become: true
-  tasks:
-    - name: Apply Infisical role conditionally
-      ansible.builtin.include_role:
-        name: infisical
-      when: (enable_infisical | default(false)) or ('infisical_hosts' in group_names)
+  roles:
+    - role: infisical
       tags:
         - infisical

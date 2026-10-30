@@ -5,27 +5,27 @@
 
 # Tiered VM groups matching docs/networking.md
 [core_coordinators]
-# gitea-01     ansible_host=10.10.1.10 enable_docker=true enable_infisical=true
-# caddy-01     ansible_host=10.10.1.11 enable_docker=true enable_infisical=true
+# gitea-01     ansible_host=10.10.1.10
+# caddy-01     ansible_host=10.10.1.11
 
 [core_apps]
-# technitium-01 ansible_host=10.11.0.10 enable_docker=true
-# uptime-kuma-01 ansible_host=10.11.0.11 enable_docker=true
+# technitium-01 ansible_host=10.11.0.10
+# uptime-kuma-01 ansible_host=10.11.0.11
 
 [core_databases]
-# core-db-01   ansible_host=10.10.2.10 enable_docker=false
+# core-db-01   ansible_host=10.10.2.10
 
 [dev_apps]
-# dev-app-01   ansible_host=10.21.0.10 enable_docker=true
+# dev-app-01   ansible_host=10.21.0.10
 
 [dev_databases]
-# dev-db-01    ansible_host=10.20.2.10 enable_docker=false
+# dev-db-01    ansible_host=10.20.2.10
 
 [prod_apps]
-# prod-app-01  ansible_host=10.32.0.10 enable_docker=true
+# prod-app-01  ansible_host=10.32.0.10
 
 [prod_databases]
-# prod-db-01   ansible_host=10.30.2.10 enable_docker=false
+# prod-db-01   ansible_host=10.30.2.10
 
 # Role assignment groups
 [docker_hosts:children]

@@ -27,7 +27,3 @@ essential_packages:
   - nano
   # Firewall baseline
   - ufw
-
-# Feature flags for optional roles (can be overridden per host/group in inventory or host_vars)
-enable_docker: false
-enable_infisical: false

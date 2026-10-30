@@ -2,50 +2,22 @@
 
 This document describes the automated provisioning workflow, base operating system, and user configuration standards for all Virtual Machines (VMs) in the Proxmox VE environment.
 
----
-
 ## 1. Automated Provisioning Principle
 
 > [!IMPORTANT]
 > **Crucial Rule**: VM provisioning and configuration must **always be performed automatically**.
 > Manual creation of VMs through the Proxmox Web GUI or interactive operating system installation wizards is strictly prohibited. All infrastructure must be defined declaratively in OpenTofu (`terraform/`) and configured via Ansible playbooks to ensure full reproducibility, idempotency, and version control.
 
----
-
 ## 2. Base Operating System
 
-All virtual machines standardize on the **Debian Cloud Image** (`genericcloud` / `nocloud` build).
-
-For the full architectural trade-off analysis and rationale, see [ADR-0005: Choose Debian Cloud Image for Virtual Machines](decisions/0005-choose-debian-cloud-image-for-virtual-machines.md).
-
-Key benefits of Debian Cloud Images:
-
-- **Ansible-Ready**: Ships with Python 3 pre-installed, enabling Ansible execution on first boot without custom bootstrapping scripts.
-- **Minimal Footprint**: Stripped of desktop packages, documentation, and unnecessary daemons, ensuring fast boot times and low resource usage.
-- **Native Cloud-Init Support**: Fully compatible with the Proxmox VE cloud-init drive and OpenTofu `bpg/proxmox` provider.
-- **Broad Versatility**: Provides full access to Debian package repositories (`apt`), effortlessly supporting both containerized workloads (Docker) and native services.
-
----
+All virtual machines use Debian Cloud Images. Rationale and architectural trade-offs are documented in [ADR-0005: Choose Debian Cloud Image for Virtual Machines](decisions/0005-choose-debian-cloud-image-for-virtual-machines.md).
 
 ## 3. Standard User Accounts & SSH Access
 
-Every provisioned VM is automatically configured via Cloud-Init with exactly two users:
+Every provisioned VM is automatically configured via Cloud-Init with two user accounts:
 
-### `ansible` (Automation User)
-
-- **Purpose**: Dedicated service account for automated configuration management and orchestration via Ansible.
-- **Privileges**: Passwordless `sudo` (`ansible ALL=(ALL) NOPASSWD:ALL`).
-- **Authentication**: Key-based only. The public key from `secrets/id_ansible.pub` is injected during Cloud-Init provisioning.
-- **Private Key**: Kept in `secrets/id_ansible` on the management host (`/srv/admin`) and passed to Ansible via `private_key_file`.
-
-### `admin` (Interactive Administrator User)
-
-- **Purpose**: Account for human administrators for manual inspection, debugging, and break-glass maintenance.
-- **Privileges**: Standard `sudo` privileges.
-- **Authentication**: Key-based only. The public key from `secrets/id_admin.pub` is injected during Cloud-Init provisioning.
-- **Password Authentication**: Disabled across the SSH daemon (`PasswordAuthentication no`).
-
----
+- **`ansible`**: Dedicated service account for automated configuration management and orchestration via Ansible (passwordless sudo, key-based authentication with `secrets/id_ansible.pub`).
+- **`admin`**: Interactive administrator account for manual inspection, debugging, and break-glass maintenance (sudo privileges, key-based authentication with `secrets/id_admin.pub`).
 
 ## 4. End-to-End Automated Lifecycle
 

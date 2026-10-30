@@ -2,8 +2,6 @@
 
 Overview of the network configuration, host firewall rules, network interfaces, and virtual machine / container network topology.
 
----
-
 ## Host Firewall & Port Exposure
 
 The Proxmox VE host firewall enforces a default `DROP` policy on all incoming traffic (`input_policy = "DROP"`) while permitting outgoing traffic (`output_policy = "ACCEPT"`).
@@ -13,8 +11,6 @@ Only three specific ports are allowed for host access:
 - **UDP 41641 (Tailscale Daemon)**: Accessible to anyone to allow the Tailscale WireGuard engine to negotiate direct peer-to-peer tunnels and communicate with coordination servers.
 - **TCP 22 (SSH)**: Allowed **only** to Tailscale users (restricted to the `tailscale0` interface and the `100.64.0.0/10` CGNAT subnet). Connections from the public internet or local LAN are dropped.
 - **TCP 8006 (Proxmox Web GUI)**: Allowed **only** to Tailscale users (restricted to the `tailscale0` interface and the `100.64.0.0/10` CGNAT subnet).
-
----
 
 ## Network Interfaces
 
@@ -28,8 +24,6 @@ Only three specific ports are allowed for host access:
 
 - Default Linux network bridge created automatically during Proxmox VE installation.
 - Attached to the physical network adapter to provide local LAN connectivity, default gateway routing, and outbound internet access for the host.
-
----
 
 ## Virtual Machine & Container Network Architecture (`10.0.0.0/8`)
 
@@ -46,8 +40,6 @@ All virtual machines and LXC containers reside within the private `10.0.0.0/8` a
 | **Dev Databases** | Development persistence layer | `10.20.2.0/24` | No |
 | **Prod Apps** | Production application workloads | `10.32.0.0/16` | Yes |
 | **Prod Databases** | Production persistence layer | `10.30.2.0/24` | No |
-
----
 
 ## Inter-Subnet Communication & Access Rules
 
@@ -104,8 +96,6 @@ flowchart TD
     ProdApps --> ProdDB
 ```
 
----
-
 ## Proxmox SDN & Firewall Implementation
 
 1. **Proxmox Software-Defined Networking (SDN)**:
@@ -117,22 +107,3 @@ flowchart TD
 3. **Internet Access via SNAT**:
    - Outbound internet access is controlled by toggling the **SNAT** (Source NAT) option on each SDN subnet definition.
    - SNAT is enabled for application subnets and disabled for database subnets.
-
----
-
-## Resource Pools & Permission Boundaries
-
-To align administrative boundaries with governance tiers, workloads are organized into two distinct Proxmox Resource Pools:
-
-- **Host-Managed Resource Pool (`host-managed`)**:
-  - Contains all Core services: Core Coordinator, Core Apps, and Core Databases.
-  - Managed exclusively by the Proxmox VE host machine using a dedicated Proxmox API token restricted to the `host-managed` resource pool.
-- **Git-Managed Resource Pool (`git-managed`)**:
-  - Contains all Dev and Prod workloads: Dev Apps, Dev Databases, Prod Apps, and Prod Databases.
-  - Managed declaratively through Git-driven CI/CD automation pipelines using scoped credentials.
-
----
-
-## Machine ID (VMID / CT ID) Allocation
-
-Machine IDs (VMID / CT ID) are allocated deterministically based on workload category and tier. For the complete allocation table and naming rules, see [docs/naming.md](naming.md#machine-id-vmid--ct-id).

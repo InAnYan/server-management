@@ -15,12 +15,9 @@ provider "proxmox" {
   api_token = var.proxmox_api_token
 }
 
-# 1. Proxmox Node Firewall Rules
-# Must be defined first so that access rules exist before enabling the firewall
 resource "proxmox_virtual_environment_firewall_rules" "node_rules" {
   node_name = var.proxmox_node
 
-  # Allow Tailscale WireGuard daemon port from anywhere
   rule {
     type    = "in"
     action  = "ACCEPT"
@@ -30,7 +27,6 @@ resource "proxmox_virtual_environment_firewall_rules" "node_rules" {
     enabled = true
   }
 
-  # Allow SSH on port 22 for Tailscale users
   rule {
     type    = "in"
     action  = "ACCEPT"
@@ -42,7 +38,6 @@ resource "proxmox_virtual_environment_firewall_rules" "node_rules" {
     enabled = true
   }
 
-  # Allow Proxmox Web GUI on port 8006 for Tailscale users
   rule {
     type    = "in"
     action  = "ACCEPT"
@@ -55,8 +50,6 @@ resource "proxmox_virtual_environment_firewall_rules" "node_rules" {
   }
 }
 
-# 2. Datacenter / Cluster Firewall Configuration
-# Depends on node rules to ensure rules exist before input policy drops traffic
 resource "proxmox_virtual_environment_cluster_firewall" "cluster_firewall" {
   enabled       = true
   input_policy  = "DROP"
@@ -67,7 +60,6 @@ resource "proxmox_virtual_environment_cluster_firewall" "cluster_firewall" {
   ]
 }
 
-# 3. Proxmox Resource Pools (docs/networking.md)
 resource "proxmox_virtual_environment_pool" "host_managed" {
   pool_id = "host-managed"
   comment = "Core coordinator and baseline services (managed on host)"
@@ -78,13 +70,11 @@ resource "proxmox_virtual_environment_pool" "git_managed" {
   comment = "Dev and Prod environments (managed via Git automation)"
 }
 
-# 4. Proxmox SDN (Software-Defined Networking)
 resource "proxmox_sdn_zone_simple" "local" {
   id   = "local"
   ipam = "pve"
 }
 
-# Core Coordinator Network (10.10.1.0/24)
 resource "proxmox_sdn_vnet" "vcoord" {
   id    = "vcoord"
   zone  = proxmox_sdn_zone_simple.local.id
@@ -98,7 +88,6 @@ resource "proxmox_sdn_subnet" "vcoord_subnet" {
   snat    = true
 }
 
-# Core Apps Network (10.11.0.0/16)
 resource "proxmox_sdn_vnet" "vcore" {
   id    = "vcore"
   zone  = proxmox_sdn_zone_simple.local.id
@@ -112,7 +101,6 @@ resource "proxmox_sdn_subnet" "vcore_subnet" {
   snat    = true
 }
 
-# Core Databases Network (10.10.2.0/24)
 resource "proxmox_sdn_vnet" "vcdb" {
   id    = "vcdb"
   zone  = proxmox_sdn_zone_simple.local.id
@@ -126,7 +114,6 @@ resource "proxmox_sdn_subnet" "vcdb_subnet" {
   snat    = false
 }
 
-# Dev Apps Network (10.21.0.0/16)
 resource "proxmox_sdn_vnet" "vdev" {
   id    = "vdev"
   zone  = proxmox_sdn_zone_simple.local.id
@@ -140,7 +127,6 @@ resource "proxmox_sdn_subnet" "vdev_subnet" {
   snat    = true
 }
 
-# Dev Databases Network (10.20.2.0/24)
 resource "proxmox_sdn_vnet" "vddb" {
   id    = "vddb"
   zone  = proxmox_sdn_zone_simple.local.id
@@ -154,7 +140,6 @@ resource "proxmox_sdn_subnet" "vddb_subnet" {
   snat    = false
 }
 
-# Prod Apps Network (10.32.0.0/16)
 resource "proxmox_sdn_vnet" "vprod" {
   id    = "vprod"
   zone  = proxmox_sdn_zone_simple.local.id
@@ -168,7 +153,6 @@ resource "proxmox_sdn_subnet" "vprod_subnet" {
   snat    = true
 }
 
-# Prod Databases Network (10.30.2.0/24)
 resource "proxmox_sdn_vnet" "vpdb" {
   id    = "vpdb"
   zone  = proxmox_sdn_zone_simple.local.id
@@ -182,7 +166,6 @@ resource "proxmox_sdn_subnet" "vpdb_subnet" {
   snat    = false
 }
 
-# 5. Apply SDN Configuration to Cluster
 resource "proxmox_sdn_applier" "sdn_apply" {
   depends_on = [
     proxmox_sdn_subnet.vcoord_subnet,

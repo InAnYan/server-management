@@ -4,8 +4,6 @@ This directory records architectural and operational decisions using the [MADR (
 
 New decisions should be proposed by copying [`template.md`](template.md) into a sequentially numbered file (e.g. `0004-title.md`).
 
----
-
 ## Decision Index
 
 - [ADR-0000: Use Markdown Architectural Decision Records (MADR)](0000-use-markdown-architectural-decision-records.md)

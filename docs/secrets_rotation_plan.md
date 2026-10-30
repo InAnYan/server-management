@@ -1,4 +1,4 @@
-# Security Rotation Plan
+# Secrets Rotation Plan
 
 1. Change root password
 2. Change administrator passwords

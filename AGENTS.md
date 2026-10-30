@@ -2,8 +2,6 @@
 
 This document provides instructions, constraints, and conventions for AI agents operating in this repository.
 
----
-
 ## 1. Project Overview & Role
 
 This repository manages infrastructure and configuration for a Proxmox VE environment:
@@ -13,8 +11,8 @@ This repository manages infrastructure and configuration for a Proxmox VE enviro
 
 > [!IMPORTANT]
 > **Tooling & Naming Convention**: Always use `terraform/` folder naming in all paths, documentation, and agent reasoning. Internally, always execute commands using OpenTofu (`tofu init`, `tofu plan`, `tofu apply`).
-
----
+>
+> **Target Audience**: This repository and its documentation are intended for experienced operators who already know how to administer Unix systems. Documentation must be concise and avoid basic tutorials, generic OS explanations, and beginner handholding.
 
 ## 2. Secrets Management & Safety Policy (CRITICAL)
 
@@ -47,8 +45,6 @@ All machine-specific identifiers (such as target server hostnames, node names, i
 5. **Always inspect before committing**:
    - Run `git status` and `git diff --staged` before every commit to ensure no `.env`, `PRIVATE.md`, private keys, hostnames, or credentials are accidentally staged.
 
----
-
 ## 3. Directory Structure
 
 ```text
@@ -63,8 +59,9 @@ All machine-specific identifiers (such as target server hostnames, node names, i
 │   ├── idea.md                        # High-level architecture overview
 │   ├── naming.md                      # Naming conventions & machine ID allocations
 │   ├── networking.md                  # Host networking and firewall architecture
+│   ├── permissions.md                 # Operational boundaries & resource pool permissions
 │   ├── potential_security_issues.md   # Security notices
-│   ├── security_rotation_plan.md      # Credential and key rotation guide
+│   ├── secrets_rotation_plan.md       # Credential and key rotation guide
 │   ├── server_setup.md                # Server bootstrap guide
 │   └── vm_setup.md                    # VM lifecycle & base OS standards
 ├── secrets/                           # Local VM SSH keys & credentials (gitignored)
@@ -95,8 +92,6 @@ All machine-specific identifiers (such as target server hostnames, node names, i
     └── site.yml                       # Primary playbook entrypoint
 ```
 
----
-
 ## 4. Operational Best Practices
 
 1. **Idempotence**:
@@ -107,9 +102,15 @@ All machine-specific identifiers (such as target server hostnames, node names, i
    - For Ansible, support `--check` / `--diff` runs where applicable.
 3. **Keep Changes Minimal**:
    - Make small, focused edits. Do not refactor unrelated playbooks or configurations.
-   - Preserve comments, structure, and existing formatting.
-
----
+   - Preserve structure and formatting.
+4. **Code Comments**:
+   - Write comments only for non-trivial logic, subtle workarounds, or essential context.
+   - Do not write comments that merely repeat or describe what the code or configuration already declares.
+5. **Documentation DRY (Don't Repeat Yourself)**:
+   - Do not duplicate text across documentation files.
+   - If a concept, setting, or specification is already documented in another file, link directly to the relevant document and section.
+6. **No Markdown Dividers**:
+   - Do not use horizontal rule dividers (`---`) in markdown documentation. Use headings to structure content.
 
 ## 5. Deployment Workflow (Server-First Execution)
 

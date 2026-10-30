@@ -2,16 +2,12 @@
 
 Standard naming rules, identifier structures, and numeric ranges across the infrastructure stack (Proxmox VE, OpenTofu, Ansible, and DNS).
 
----
-
 ## General Principles
 
 - **Lowercase ASCII only**: All identifiers, hostnames, network devices, and resource identifiers must use English lowercase letters (`[a-z0-9-]`).
 - **Hyphen delimiters**: Words and tokens are delimited by hyphens (`-`).
 - **Structural separation preference**: Prefer separating logical and structural elements with hyphens rather than every individual English word (for example, `core-testapp` rather than `core-test-app`). This keeps compound identifiers concise, predictable, and structurally hierarchical.
 - **No special characters**: Avoid underscores, dots, or spaces in machine and device names, except where strictly enforced by specific tooling syntax (such as Ansible group names which require underscores, e.g. `core_apps`).
-
----
 
 ## Machine Name
 
@@ -50,8 +46,6 @@ Virtual machines and LXC containers follow a strict three-part hierarchical nami
 | `prod-app-api` | `prod` | `app` | Production backend API service |
 | `prod-data-postgres` | `prod` | `data` | Production primary database cluster |
 
----
-
 ## Machine ID (VMID / CT ID)
 
 To maintain predictability across provisioning workflows, backup scripts, and inventories, machine IDs follow deterministic numeric allocations aligned with machine categories and subcategories:
@@ -66,25 +60,9 @@ To maintain predictability across provisioning workflows, backup scripts, and in
 | **Prod Apps** | `3000` – `3899` | `prod-app-*` | `git-managed` |
 | **Prod Databases** | `3900` – `3999` | `prod-data-*` | `git-managed` |
 
----
-
 ## IP Addresses
 
-All IP addresses, CIDR blocks, gateway configurations, and inter-subnet routing policies are defined in [Networking Architecture](networking.md).
-
-Static IP assignments must match their corresponding tier subnetwork:
-
-- Core Coordinator workloads use `10.10.1.0/24`.
-- Core Application workloads use `10.11.0.0/16`.
-- Core Database workloads use `10.10.2.0/24`.
-- Dev Application workloads use `10.21.0.0/16`.
-- Dev Database workloads use `10.20.2.0/24`.
-- Prod Application workloads use `10.32.0.0/16`.
-- Prod Database workloads use `10.30.2.0/24`.
-
-For full firewall rules, SNAT settings, and inter-subnet access rules, see [docs/networking.md](networking.md).
-
----
+All IP addresses, CIDR blocks, gateway assignments, and network topologies are documented in [docs/networking.md](networking.md).
 
 ## Network Devices
 

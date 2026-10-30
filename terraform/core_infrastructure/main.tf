@@ -15,7 +15,6 @@ provider "proxmox" {
   api_token = var.proxmox_api_token
 }
 
-# 1. Download Debian Cloud Image to import storage (pure REST API)
 resource "proxmox_virtual_environment_download_file" "debian_cloud_image" {
   content_type = "import"
   datastore_id = "local"
@@ -24,7 +23,6 @@ resource "proxmox_virtual_environment_download_file" "debian_cloud_image" {
   file_name    = "debian-12-genericcloud-amd64.qcow2"
 }
 
-# 2. Test VM in Core Apps Network (10.11.0.0/16) in host-managed resource pool
 resource "proxmox_virtual_environment_vm" "testvm" {
   name        = "core-app-testvm"
   description = "Test VM in core apps network"

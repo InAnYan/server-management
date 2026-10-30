@@ -15,13 +15,13 @@ provider "proxmox" {
   api_token = var.proxmox_api_token
 }
 
-# 1. Download Debian Cloud Image
+# 1. Download Debian Cloud Image to import storage (pure REST API)
 resource "proxmox_virtual_environment_download_file" "debian_cloud_image" {
-  content_type = "iso"
+  content_type = "import"
   datastore_id = "local"
   node_name    = var.proxmox_node
   url          = "https://cloud.debian.org/images/cloud/bookworm/latest/debian-12-genericcloud-amd64.qcow2"
-  file_name    = "debian-12-genericcloud-amd64.img"
+  file_name    = "debian-12-genericcloud-amd64.qcow2"
 }
 
 # 2. Test VM in Core Coordinator Network (10.10.1.0/24)
@@ -49,18 +49,16 @@ resource "proxmox_virtual_environment_vm" "testvm" {
     type = "l26"
   }
 
-  scsi_hardware = "virtio-scsi-pci"
-
   disk {
     datastore_id = "local-lvm"
-    file_id      = proxmox_virtual_environment_download_file.debian_cloud_image.id
-    interface    = "scsi0"
+    interface    = "virtio0"
     iothread     = true
     discard      = "on"
     size         = 10
+    import_from  = proxmox_virtual_environment_download_file.debian_cloud_image.id
   }
 
-  boot_order = ["scsi0"]
+  boot_order = ["virtio0"]
 
   network_device {
     bridge = "vcoord"

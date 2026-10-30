@@ -11,7 +11,15 @@ Only specific ports are allowed for host access:
 - **UDP 41641 (Tailscale Daemon)**: Accessible to anyone to allow the Tailscale WireGuard engine to negotiate direct peer-to-peer tunnels and communicate with coordination servers.
 - **TCP 22 (SSH)**: Allowed **only** to Tailscale users (restricted to the `tailscale0` interface and the `100.64.0.0/10` CGNAT subnet). Connections from the public internet or local LAN are dropped.
 - **TCP 8006 (Proxmox Web GUI)**: Allowed **only** to Tailscale users (restricted to the `tailscale0` interface and the `100.64.0.0/10` CGNAT subnet).
-- **TCP 80 (HTTP) & TCP 443 (HTTPS)**: Accessible to anyone on `vmbr0` to receive public web traffic for DNAT forwarding to the Caddy reverse proxy VM (`core-coord-caddy`, `10.10.1.10`).
+- **TCP 80 (HTTP) & TCP 443 (HTTPS)**: Accessible on the host (`vmbr0` and `tailscale0`) to receive web traffic and forward it via `systemd-socket-proxyd` to the Caddy reverse proxy VM (`core-coord-caddy`, `10.10.1.10`).
+
+## Host Port Forwarding (`systemd-socket-proxyd`)
+
+Host-level ingress traffic for HTTP (80) and HTTPS (443) is forwarded to `core-coord-caddy` (`10.10.1.10`) using systemd socket activation and `systemd-socket-proxyd`:
+
+- Systemd binds to `0.0.0.0:80` and `0.0.0.0:443` via dedicated `.socket` units (`port-forward-caddy-ingress-80.socket`, `port-forward-caddy-ingress-443.socket`).
+- On incoming connections, systemd triggers `systemd-socket-proxyd` services that stream TCP traffic directly to `10.10.1.10`.
+- This Layer 4 stream proxy eliminates iptables DNAT conflicts, conntrack zone isolation issues introduced by Proxmox SDN firewall bridges (`CT --zone 1`), and Tailscale forward filtering issues.
 
 ## Network Interfaces
 

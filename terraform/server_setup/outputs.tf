@@ -18,12 +18,12 @@ output "resource_pools" {
 output "sdn_vnets" {
   description = "Proxmox SDN VNets created"
   value = {
-    core_coordinator = proxmox_virtual_environment_sdn_vnet.vcoord.id
-    core_apps        = proxmox_virtual_environment_sdn_vnet.vcore.id
-    core_databases   = proxmox_virtual_environment_sdn_vnet.vcdb.id
-    dev_apps         = proxmox_virtual_environment_sdn_vnet.vdev.id
-    dev_databases    = proxmox_virtual_environment_sdn_vnet.vddb.id
-    prod_apps        = proxmox_virtual_environment_sdn_vnet.vprod.id
-    prod_databases   = proxmox_virtual_environment_sdn_vnet.vpdb.id
+    core_coordinator = proxmox_sdn_vnet.vcoord.id
+    core_apps        = proxmox_sdn_vnet.vcore.id
+    core_databases   = proxmox_sdn_vnet.vcdb.id
+    dev_apps         = proxmox_sdn_vnet.vdev.id
+    dev_databases    = proxmox_sdn_vnet.vddb.id
+    prod_apps        = proxmox_sdn_vnet.vprod.id
+    prod_databases   = proxmox_sdn_vnet.vpdb.id
   }
 }

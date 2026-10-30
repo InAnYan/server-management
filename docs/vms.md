@@ -2,23 +2,21 @@
 
 Inventory and functional catalog of all virtual machines provisioned across infrastructure environments.
 
+Workloads marked as stateful (**Yes**) store persistent application data, configuration, or database files on disk and require scheduled backups. Stateless workloads (**No**) do not retain unique local state and can be recreated on demand via OpenTofu and Ansible.
+
 ## Core
 
 ### Core Coordinators (coord)
 
-- **Machine Name**: `core-coord-caddy`
-  - **Machine ID**: `1000`
-  - **IP Address**: `10.10.1.10`
-  - **Service**: Caddy
-  - **Purpose**: Ingress reverse proxy, automatic TLS termination, and L7 routing for all external web traffic.
+| Machine ID | Machine Name | IP Address | Service | Stateful | Purpose |
+| :--- | :--- | :--- | :--- | :--- | :--- |
+| `1000` | `core-coord-caddy` | `10.10.1.10` | Caddy | Yes | Ingress reverse proxy, automated TLS termination, and L7 routing |
 
 ### Core Applications (app)
 
-- **Machine Name**: `core-app-testvm`
-  - **Machine ID**: `1500`
-  - **IP Address**: `10.11.0.10`
-  - **Service**: Test Application VM
-  - **Purpose**: Baseline test virtual machine in the core applications tier.
+| Machine ID | Machine Name | IP Address | Service | Stateful | Purpose |
+| :--- | :--- | :--- | :--- | :--- | :--- |
+| `1500` | `core-app-testvm` | `10.11.0.10` | Test VM | No | Baseline test virtual machine in core applications tier |
 
 ### Core Databases & Storage (data)
 

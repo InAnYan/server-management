@@ -63,7 +63,8 @@ All machine-specific identifiers (such as target server hostnames, node names, i
 │   ├── potential_security_issues.md   # Security notices
 │   ├── secrets_rotation_plan.md       # Credential and key rotation guide
 │   ├── server_setup.md                # Server bootstrap guide
-│   └── vm_setup.md                    # VM lifecycle & base OS standards
+│   ├── vm_setup.md                    # VM lifecycle & base OS standards
+│   └── vms.md                         # Virtual machine inventory & registry
 ├── secrets/                           # Local VM SSH keys & credentials (gitignored)
 ├── terraform/                         # Infrastructure provisioning (OpenTofu)
 │   ├── server_setup/                  # Base Proxmox host setup & networking

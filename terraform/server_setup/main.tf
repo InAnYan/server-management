@@ -48,6 +48,24 @@ resource "proxmox_virtual_environment_firewall_rules" "node_rules" {
     comment = "Allow Proxmox Web Dashboard from Tailscale network"
     enabled = true
   }
+
+  rule {
+    type    = "in"
+    action  = "ACCEPT"
+    proto   = "tcp"
+    dport   = "80"
+    comment = "Allow HTTP for Caddy reverse proxy"
+    enabled = true
+  }
+
+  rule {
+    type    = "in"
+    action  = "ACCEPT"
+    proto   = "tcp"
+    dport   = "443"
+    comment = "Allow HTTPS for Caddy reverse proxy"
+    enabled = true
+  }
 }
 
 resource "proxmox_virtual_environment_cluster_firewall" "cluster_firewall" {

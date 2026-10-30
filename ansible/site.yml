@@ -25,3 +25,11 @@
     - role: infisical
       tags:
         - infisical
+
+- name: Deploy Caddy reverse proxy
+  hosts: core_coordinators:!proxmox
+  become: true
+  roles:
+    - role: caddy
+      tags:
+        - caddy

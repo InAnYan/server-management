@@ -6,11 +6,12 @@ Overview of the network configuration, host firewall rules, network interfaces, 
 
 The Proxmox VE host firewall enforces a default `DROP` policy on all incoming traffic (`input_policy = "DROP"`) while permitting outgoing traffic (`output_policy = "ACCEPT"`).
 
-Only three specific ports are allowed for host access:
+Only specific ports are allowed for host access:
 
 - **UDP 41641 (Tailscale Daemon)**: Accessible to anyone to allow the Tailscale WireGuard engine to negotiate direct peer-to-peer tunnels and communicate with coordination servers.
 - **TCP 22 (SSH)**: Allowed **only** to Tailscale users (restricted to the `tailscale0` interface and the `100.64.0.0/10` CGNAT subnet). Connections from the public internet or local LAN are dropped.
 - **TCP 8006 (Proxmox Web GUI)**: Allowed **only** to Tailscale users (restricted to the `tailscale0` interface and the `100.64.0.0/10` CGNAT subnet).
+- **TCP 80 (HTTP) & TCP 443 (HTTPS)**: Accessible to anyone on `vmbr0` to receive public web traffic for DNAT forwarding to the Caddy reverse proxy VM (`core-coord-caddy`, `10.10.1.10`).
 
 ## Network Interfaces
 

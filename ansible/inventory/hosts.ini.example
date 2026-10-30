@@ -6,8 +6,8 @@
 
 # Tiered VM groups matching docs/networking.md and docs/naming.md
 [core_coordinators]
-# core-coord-gitea    ansible_host=10.10.1.10
-# core-coord-caddy    ansible_host=10.10.1.11
+# core-coord-caddy    ansible_host=10.10.1.10
+# core-coord-gitea    ansible_host=10.10.1.11
 
 [core_apps]
 # core-app-technitium ansible_host=10.11.0.10

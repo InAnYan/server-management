@@ -1,0 +1,6 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ansible/ansible-lint/main/src/ansiblelint/schemas/ansible.json
+---
+caddy_dir: /opt/caddy
+caddy_image: caddy:2-alpine
+caddy_http_port: 80
+caddy_https_port: 443

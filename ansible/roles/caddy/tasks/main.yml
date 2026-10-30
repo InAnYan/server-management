@@ -1,0 +1,44 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ansible/ansible-lint/main/src/ansiblelint/schemas/ansible.json
+---
+- name: Ensure Caddy configuration and data directories exist
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+  loop:
+    - "{{ caddy_dir }}"
+    - "{{ caddy_dir }}/data"
+    - "{{ caddy_dir }}/config"
+  tags:
+    - caddy
+
+- name: Deploy Caddy configuration file
+  ansible.builtin.template:
+    src: Caddyfile.j2
+    dest: "{{ caddy_dir }}/Caddyfile"
+    owner: root
+    group: root
+    mode: "0644"
+  tags:
+    - caddy
+
+- name: Deploy Caddy Docker Compose configuration
+  ansible.builtin.template:
+    src: docker-compose.yml.j2
+    dest: "{{ caddy_dir }}/docker-compose.yml"
+    owner: root
+    group: root
+    mode: "0644"
+  tags:
+    - caddy
+
+- name: Pull and start Caddy container
+  ansible.builtin.command:
+    cmd: docker compose up -d --pull missing --remove-orphans
+    chdir: "{{ caddy_dir }}"
+  register: caddy_compose_result
+  changed_when: "'Started' in caddy_compose_result.stdout or 'Recreated' in caddy_compose_result.stdout or 'Pulling' in caddy_compose_result.stdout"
+  tags:
+    - caddy

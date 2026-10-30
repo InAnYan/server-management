@@ -1,0 +1,13 @@
+services:
+  caddy:
+    image: {{ caddy_image }}
+    container_name: caddy
+    restart: unless-stopped
+    ports:
+      - "{{ caddy_http_port }}:80"
+      - "{{ caddy_https_port }}:443"
+      - "{{ caddy_https_port }}:443/udp"
+    volumes:
+      - {{ caddy_dir }}/Caddyfile:/etc/caddy/Caddyfile:ro
+      - {{ caddy_dir }}/data:/data
+      - {{ caddy_dir }}/config:/config

@@ -7,6 +7,8 @@
 - Devices between networks can freely talk to each other (security is hardened using VNETs and firewall rules, but misconfiguration remains a risk)
 - Overflow in IP range or machine ID
 - Permissions on how VMs communicate with each other are not granular, but rather generalized in subnetworks
+- Backups stored locally on the host via Proxmox storage rather than off-site (host hardware failure destroys both live machines and backups)
+- Stateful VMs without external persistence or distributed replication (accidental VM deletion or storage corruption permanently destroys application and database data)
 
 ## General Potential Issues
 

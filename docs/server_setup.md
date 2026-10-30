@@ -147,3 +147,29 @@ git clone https://github.com/InAnYan/server-management .
 # Any local uncommitted secret files must be owned by :sudo and set to 660:
 chmod 660 /srv/admin/.env /srv/admin/terraform/*/*.tfvars 2>/dev/null || true
 ```
+
+## 10. Generate SSH Keys for VM Access
+
+Inside the workspace, create a dedicated gitignored `secrets/` directory and generate two separate Ed25519 keypairs for VM management:
+
+- `id_ansible`: Keypair used by Ansible automation to run playbooks.
+- `id_admin`: Keypair used by human administrators for interactive break-glass access.
+
+```bash
+# Create restricted secrets directory
+mkdir -p /srv/admin/secrets
+chmod 700 /srv/admin/secrets
+
+# Generate Ansible automation keypair
+ssh-keygen -t ed25519 -N "" -C "ansible-automation" -f /srv/admin/secrets/id_ansible
+
+# Generate Admin operator keypair
+ssh-keygen -t ed25519 -N "" -C "admin-operator" -f /srv/admin/secrets/id_admin
+
+# Enforce strict permissions
+chmod 600 /srv/admin/secrets/id_*
+chmod 644 /srv/admin/secrets/*.pub
+```
+
+> [!CAUTION]
+> The `secrets/` directory is strictly excluded by `.gitignore`. Never commit private keys to version control.

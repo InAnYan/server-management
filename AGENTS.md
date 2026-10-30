@@ -35,6 +35,7 @@ All machine-specific identifiers (such as target server hostnames, node names, i
 1. **Never commit plaintext secrets or private identifiers**: Passwords, API tokens, private SSH keys, TLS certificates, actual server hostnames, and node names must **NEVER** appear in tracked Git files or commit history.
 2. **Respect `.gitignore`**:
    - `PRIVATE.md` (and `*.private.md`) is strictly ignored.
+   - `secrets/` is strictly ignored.
    - `terraform/*/terraform.tfvars` (and any `*.tfvars`) is strictly ignored. Only create or update `*.tfvars.example` with sanitized placeholder values.
    - `ansible/inventory/hosts.ini` (and any `*.ini`) is strictly ignored. Use `hosts.ini.example` for documentation.
    - `.env` and `*.env` files are strictly ignored. Use `.env.example` for documentation.
@@ -63,7 +64,9 @@ All machine-specific identifiers (such as target server hostnames, node names, i
 │   ├── networking.md                  # Host networking and firewall architecture
 │   ├── potential_security_issues.md   # Security notices
 │   ├── security_rotation_plan.md      # Credential and key rotation guide
-│   └── server_setup.md                # Server bootstrap guide
+│   ├── server_setup.md                # Server bootstrap guide
+│   └── vm_setup.md                    # VM lifecycle & base OS standards
+├── secrets/                           # Local VM SSH keys & credentials (gitignored)
 ├── terraform/                         # Infrastructure provisioning (OpenTofu)
 │   ├── server_setup/                  # Base Proxmox host setup & networking
 │   │   ├── main.tf

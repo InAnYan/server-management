@@ -32,6 +32,11 @@ resource "proxmox_virtual_environment_vm" "testvm" {
   vm_id       = 1500
   pool_id     = "host-managed"
 
+  agent {
+    enabled = true
+    timeout = "0s"
+  }
+
   cpu {
     cores = 1
     type  = "host"

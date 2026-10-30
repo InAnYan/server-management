@@ -23,6 +23,7 @@
     path: /etc/network/interfaces
     marker: "# {mark} ANSIBLE MANAGED PORT FORWARDS"
     block: |
+      post-up iptables -C FORWARD -m conntrack --ctstate ESTABLISHED,RELATED -j ACCEPT 2>/dev/null || iptables -A FORWARD -m conntrack --ctstate ESTABLISHED,RELATED -j ACCEPT
       {% for rule in host_port_forwards %}
       # {{ rule.name }}
       {% set proto = rule.protocol | default('tcp') %}
@@ -34,6 +35,8 @@
       post-down iptables -t nat -D PREROUTING -i {{ iface }} -p {{ proto }} -m multiport --dports {{ ports }} -j DNAT --to-destination {{ target }} 2>/dev/null || true
       post-up iptables -C FORWARD -i {{ iface }} -p {{ proto }} -d {{ rule.dest_ip }} -m multiport --dports {{ rule.dest_port | default(ports) }} -j ACCEPT 2>/dev/null || iptables -A FORWARD -i {{ iface }} -p {{ proto }} -d {{ rule.dest_ip }} -m multiport --dports {{ rule.dest_port | default(ports) }} -j ACCEPT
       post-down iptables -D FORWARD -i {{ iface }} -p {{ proto }} -d {{ rule.dest_ip }} -m multiport --dports {{ rule.dest_port | default(ports) }} -j ACCEPT 2>/dev/null || true
+      post-up iptables -t nat -C POSTROUTING -d {{ rule.dest_ip }} -p {{ proto }} -m multiport --dports {{ rule.dest_port | default(ports) }} -j MASQUERADE 2>/dev/null || iptables -t nat -A POSTROUTING -d {{ rule.dest_ip }} -p {{ proto }} -m multiport --dports {{ rule.dest_port | default(ports) }} -j MASQUERADE
+      post-down iptables -t nat -D POSTROUTING -d {{ rule.dest_ip }} -p {{ proto }} -m multiport --dports {{ rule.dest_port | default(ports) }} -j MASQUERADE 2>/dev/null || true
       {% endfor %}
       {% endfor %}
   tags:
@@ -41,6 +44,9 @@
 
 - name: Apply port forwarding rules immediately to active kernel
   ansible.builtin.shell: |
+    iptables -C FORWARD -m conntrack --ctstate ESTABLISHED,RELATED -j ACCEPT 2>/dev/null || \
+    iptables -A FORWARD -m conntrack --ctstate ESTABLISHED,RELATED -j ACCEPT
+
     {% for rule in host_port_forwards %}
     {% set proto = rule.protocol | default('tcp') %}
     {% set ports = rule.host_ports | join(',') %}
@@ -52,6 +58,9 @@
 
     iptables -C FORWARD -i {{ iface }} -p {{ proto }} -d {{ rule.dest_ip }} -m multiport --dports {{ rule.dest_port | default(ports) }} -j ACCEPT 2>/dev/null || \
     iptables -A FORWARD -i {{ iface }} -p {{ proto }} -d {{ rule.dest_ip }} -m multiport --dports {{ rule.dest_port | default(ports) }} -j ACCEPT
+
+    iptables -t nat -C POSTROUTING -d {{ rule.dest_ip }} -p {{ proto }} -m multiport --dports {{ rule.dest_port | default(ports) }} -j MASQUERADE 2>/dev/null || \
+    iptables -t nat -A POSTROUTING -d {{ rule.dest_ip }} -p {{ proto }} -m multiport --dports {{ rule.dest_port | default(ports) }} -j MASQUERADE
     {% endfor %}
     {% endfor %}
   changed_when: false

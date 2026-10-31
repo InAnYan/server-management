@@ -124,6 +124,20 @@ resource "proxmox_virtual_environment_firewall_rules" "caddy_rules" {
   }
 }
 
+resource "proxmox_backup_job" "caddy_backup" {
+  id       = "backup-core-coord-caddy"
+  node     = var.proxmox_node
+  schedule = "daily"
+  storage  = "local"
+  mode     = "snapshot"
+  compress = "zstd"
+  vmid     = [tostring(proxmox_virtual_environment_vm.caddy.vm_id)]
+
+  prune_backups = {
+    "keep-last" = "3"
+  }
+}
+
 resource "proxmox_virtual_environment_vm" "testvm" {
   name        = "core-app-testvm"
   description = "Test VM in core apps network"

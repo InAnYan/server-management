@@ -78,14 +78,81 @@ resource "proxmox_virtual_environment_cluster_firewall" "cluster_firewall" {
   ]
 }
 
-resource "proxmox_virtual_environment_pool" "host_managed" {
-  pool_id = "host-managed"
-  comment = "Core coordinator and baseline services (managed on host)"
+resource "proxmox_virtual_environment_pool" "core_coord" {
+  pool_id = "core-coord"
+  comment = "Core coordinator workloads (Caddy, Gitea, Infisical)"
 }
 
-resource "proxmox_virtual_environment_pool" "git_managed" {
-  pool_id = "git-managed"
-  comment = "Dev and Prod environments (managed via Git automation)"
+resource "proxmox_virtual_environment_pool" "core_app" {
+  pool_id = "core-app"
+  comment = "Core application workloads (Technitium, Uptime Kuma)"
+}
+
+resource "proxmox_virtual_environment_pool" "core_data" {
+  pool_id = "core-data"
+  comment = "Core data and database persistence workloads"
+}
+
+resource "proxmox_virtual_environment_pool" "dev_app" {
+  pool_id = "dev-app"
+  comment = "Development application workloads"
+}
+
+resource "proxmox_virtual_environment_pool" "dev_data" {
+  pool_id = "dev-data"
+  comment = "Development data and database persistence workloads"
+}
+
+resource "proxmox_virtual_environment_pool" "prod_app" {
+  pool_id = "prod-app"
+  comment = "Production application workloads"
+}
+
+resource "proxmox_virtual_environment_pool" "prod_data" {
+  pool_id = "prod-data"
+  comment = "Production data and database persistence workloads"
+}
+
+resource "proxmox_backup_job" "core_data_backup" {
+  id       = "backup-core-data"
+  node     = var.proxmox_node
+  schedule = "daily"
+  storage  = "local"
+  mode     = "snapshot"
+  compress = "zstd"
+  pool     = proxmox_virtual_environment_pool.core_data.pool_id
+
+  prune_backups = {
+    "keep-last" = "3"
+  }
+}
+
+resource "proxmox_backup_job" "dev_data_backup" {
+  id       = "backup-dev-data"
+  node     = var.proxmox_node
+  schedule = "daily"
+  storage  = "local"
+  mode     = "snapshot"
+  compress = "zstd"
+  pool     = proxmox_virtual_environment_pool.dev_data.pool_id
+
+  prune_backups = {
+    "keep-last" = "3"
+  }
+}
+
+resource "proxmox_backup_job" "prod_data_backup" {
+  id       = "backup-prod-data"
+  node     = var.proxmox_node
+  schedule = "daily"
+  storage  = "local"
+  mode     = "snapshot"
+  compress = "zstd"
+  pool     = proxmox_virtual_environment_pool.prod_data.pool_id
+
+  prune_backups = {
+    "keep-last" = "3"
+  }
 }
 
 resource "proxmox_sdn_zone_simple" "local" {

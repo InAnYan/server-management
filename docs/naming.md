@@ -52,13 +52,13 @@ To maintain predictability across provisioning workflows, backup scripts, and in
 
 | Tier / Subcategory | Machine ID Range (VMID / CT ID) | Name Prefix Pattern | Resource Pool |
 | :--- | :--- | :--- | :--- |
-| **Core Coordinators** | `1000` – `1499` | `core-coord-*` | `host-managed` |
-| **Core Apps** | `1500` – `1899` | `core-app-*` | `host-managed` |
-| **Core Databases** | `1900` – `1999` | `core-data-*` | `host-managed` |
-| **Dev Apps** | `2000` – `2899` | `dev-app-*` | `git-managed` |
-| **Dev Databases** | `2900` – `2999` | `dev-data-*` | `git-managed` |
-| **Prod Apps** | `3000` – `3899` | `prod-app-*` | `git-managed` |
-| **Prod Databases** | `3900` – `3999` | `prod-data-*` | `git-managed` |
+| **Core Coordinators** | `1000` – `1499` | `core-coord-*` | `core-coord` |
+| **Core Apps** | `1500` – `1899` | `core-app-*` | `core-app` |
+| **Core Databases** | `1900` – `1999` | `core-data-*` | `core-data` |
+| **Dev Apps** | `2000` – `2899` | `dev-app-*` | `dev-app` |
+| **Dev Databases** | `2900` – `2999` | `dev-data-*` | `dev-data` |
+| **Prod Apps** | `3000` – `3899` | `prod-app-*` | `prod-app` |
+| **Prod Databases** | `3900` – `3999` | `prod-data-*` | `prod-data` |
 
 ## IP Addresses
 

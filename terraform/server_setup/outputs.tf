@@ -8,10 +8,15 @@ output "firewall_status" {
 
 output "resource_pools" {
   description = "Proxmox resource pools created"
-  value = [
-    proxmox_virtual_environment_pool.host_managed.pool_id,
-    proxmox_virtual_environment_pool.git_managed.pool_id,
-  ]
+  value = {
+    core_coord = proxmox_virtual_environment_pool.core_coord.pool_id
+    core_app   = proxmox_virtual_environment_pool.core_app.pool_id
+    core_data  = proxmox_virtual_environment_pool.core_data.pool_id
+    dev_app    = proxmox_virtual_environment_pool.dev_app.pool_id
+    dev_data   = proxmox_virtual_environment_pool.dev_data.pool_id
+    prod_app   = proxmox_virtual_environment_pool.prod_app.pool_id
+    prod_data  = proxmox_virtual_environment_pool.prod_data.pool_id
+  }
 }
 
 output "sdn_vnets" {

@@ -28,7 +28,7 @@ resource "proxmox_virtual_environment_vm" "caddy" {
   description = "Caddy reverse proxy and ingress coordinator"
   node_name   = var.proxmox_node
   vm_id       = 1000
-  pool_id     = "host-managed"
+  pool_id     = "core-coord"
   protection  = true
 
   agent {
@@ -124,26 +124,12 @@ resource "proxmox_virtual_environment_firewall_rules" "caddy_rules" {
   }
 }
 
-resource "proxmox_backup_job" "caddy_backup" {
-  id       = "backup-core-coord-caddy"
-  node     = var.proxmox_node
-  schedule = "daily"
-  storage  = "local"
-  mode     = "snapshot"
-  compress = "zstd"
-  vmid     = [tostring(proxmox_virtual_environment_vm.caddy.vm_id)]
-
-  prune_backups = {
-    "keep-last" = "3"
-  }
-}
-
 resource "proxmox_virtual_environment_vm" "testvm" {
   name        = "core-app-testvm"
   description = "Test VM in core apps network"
   node_name   = var.proxmox_node
   vm_id       = 1500
-  pool_id     = "host-managed"
+  pool_id     = "core-app"
 
   agent {
     enabled = true

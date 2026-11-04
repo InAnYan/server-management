@@ -1,0 +1,16 @@
+---
+# PostgreSQL defaults
+postgres_version: "16-alpine"
+postgres_dir: "/opt/postgres"
+postgres_port: 5432
+postgres_uid: "70"
+postgres_gid: "70"
+postgres_admin_user: "postgres"
+postgres_admin_password: "{{ lookup('file', '/srv/secrets/postgres_admin_password', errors='ignore') | default(lookup('file', '/srv/admin/postgres_admin_password', errors='ignore'), true) | default(lookup('file', '/srv/admin/postgres_admin_vm', errors='ignore'), true) | default('ChangeMePostgresAdminPassword123!', true) | trim }}"
+postgres_container_name: "postgres"
+postgres_db: "postgres"
+uptime_kuma_probe_user: "uptimekuma_probe"
+uptime_kuma_probe_password: "{{ lookup('file', '/srv/secrets/uptime_kuma_probe_password', errors='ignore') | default(lookup('file', '/srv/admin/uptime_kuma_probe_password', errors='ignore'), true) | default('ChangeMeProbePassword123!', true) | trim }}"
+gitea_db_user: "gitea"
+gitea_db_name: "giteadb"
+gitea_db_password: "{{ lookup('file', '/srv/secrets/gitea_db_password', errors='ignore') | default(lookup('file', '/srv/admin/gitea_db_password', errors='ignore'), true) | default(vault_gitea_db_password | default('ChangeMeGiteaDbPass123!'), true) | trim }}"

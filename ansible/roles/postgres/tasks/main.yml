@@ -1,0 +1,151 @@
+---
+# PostgreSQL database role tasks
+
+- name: Ensure PostgreSQL base directory exists
+  ansible.builtin.file:
+    path: "{{ postgres_dir }}"
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+  tags:
+    - postgres
+    - database
+
+- name: Ensure PostgreSQL data directory exists
+  ansible.builtin.file:
+    path: "{{ postgres_dir }}/data"
+    state: directory
+    owner: "{{ postgres_uid }}"
+    group: "{{ postgres_gid }}"
+    mode: "0700"
+  tags:
+    - postgres
+    - database
+
+- name: Deploy PostgreSQL Docker Compose configuration
+  ansible.builtin.template:
+    src: docker-compose.yml.j2
+    dest: "{{ postgres_dir }}/docker-compose.yml"
+    owner: root
+    group: root
+    mode: "0600"
+  register: postgres_compose_file_result
+  tags:
+    - postgres
+    - database
+
+- name: Pull and start PostgreSQL container
+  ansible.builtin.command:
+    cmd: docker compose up -d
+    chdir: "{{ postgres_dir }}"
+  register: postgres_compose_result
+  changed_when: "'Started' in postgres_compose_result.stdout or 'Recreated' in postgres_compose_result.stdout or 'Pulling' in postgres_compose_result.stdout"
+  tags:
+    - postgres
+    - database
+
+- name: Wait for PostgreSQL database to be healthy
+  ansible.builtin.command:
+    cmd: docker exec {{ postgres_container_name }} pg_isready -U {{ postgres_admin_user }} -d {{ postgres_db }}
+  register: postgres_ready
+  until: postgres_ready.rc == 0
+  retries: 20
+  delay: 3
+  changed_when: false
+  tags:
+    - postgres
+    - database
+
+- name: Setup or rotate PostgreSQL administrator password
+  ansible.builtin.include_tasks: setup_admin.yml
+
+- name: Ensure Uptime Kuma monitoring probe role exists
+  ansible.builtin.command:
+    cmd: >
+      docker exec -i {{ postgres_container_name }} psql -U {{ postgres_admin_user }} -d {{ postgres_db }} -c "
+      DO $$
+      BEGIN
+        IF NOT EXISTS (SELECT FROM pg_catalog.pg_roles WHERE rolname = '{{ uptime_kuma_probe_user }}') THEN
+          CREATE ROLE {{ uptime_kuma_probe_user }} WITH LOGIN PASSWORD '{{ uptime_kuma_probe_password }}';
+        ELSE
+          ALTER ROLE {{ uptime_kuma_probe_user }} WITH PASSWORD '{{ uptime_kuma_probe_password }}';
+        END IF;
+      END
+      $$;
+      GRANT CONNECT ON DATABASE {{ postgres_db }} TO {{ uptime_kuma_probe_user }};
+      "
+  register: postgres_probe_role
+  changed_when: "'CREATE ROLE' in postgres_probe_role.stdout or 'ALTER ROLE' in postgres_probe_role.stdout"
+  when:
+    - uptime_kuma_probe_password is defined
+    - uptime_kuma_probe_password | length > 0
+  tags:
+    - postgres
+    - database
+
+- name: Ensure Gitea database role exists
+  ansible.builtin.command:
+    cmd: >
+      docker exec -i {{ postgres_container_name }} psql -U {{ postgres_admin_user }} -d {{ postgres_db }} -c "
+      DO $$
+      BEGIN
+        IF NOT EXISTS (SELECT FROM pg_catalog.pg_roles WHERE rolname = '{{ gitea_db_user }}') THEN
+          CREATE ROLE {{ gitea_db_user }} WITH LOGIN PASSWORD '{{ gitea_db_password }}';
+        ELSE
+          ALTER ROLE {{ gitea_db_user }} WITH PASSWORD '{{ gitea_db_password }}';
+        END IF;
+      END
+      $$;
+      "
+  register: postgres_gitea_role
+  changed_when: "'CREATE ROLE' in postgres_gitea_role.stdout or 'ALTER ROLE' in postgres_gitea_role.stdout"
+  when:
+    - inventory_hostname == 'core-data-postgres'
+    - gitea_db_password is defined
+    - gitea_db_password | length > 0
+  tags:
+    - postgres
+    - database
+
+- name: Check if Gitea database exists
+  ansible.builtin.command:
+    cmd: docker exec -i {{ postgres_container_name }} psql -U {{ postgres_admin_user }} -d {{ postgres_db }} -tAc "SELECT 1 FROM pg_database WHERE datname = '{{ gitea_db_name }}';"
+  register: postgres_gitea_db_check
+  changed_when: false
+  when:
+    - inventory_hostname == 'core-data-postgres'
+    - gitea_db_password is defined
+    - gitea_db_password | length > 0
+  tags:
+    - postgres
+    - database
+
+- name: Create Gitea database
+  ansible.builtin.command:
+    cmd: docker exec -i {{ postgres_container_name }} psql -U {{ postgres_admin_user }} -d {{ postgres_db }} -c "CREATE DATABASE {{ gitea_db_name }} OWNER {{ gitea_db_user }};"
+  register: postgres_gitea_db_create
+  when:
+    - inventory_hostname == 'core-data-postgres'
+    - gitea_db_password is defined
+    - gitea_db_password | length > 0
+    - postgres_gitea_db_check.stdout != '1'
+  tags:
+    - postgres
+    - database
+
+- name: Ensure Gitea user permissions on schema public
+  ansible.builtin.command:
+    cmd: >
+      docker exec -i {{ postgres_container_name }} psql -U {{ postgres_admin_user }} -d {{ gitea_db_name }} -c "
+      GRANT ALL ON SCHEMA public TO {{ gitea_db_user }};
+      "
+  register: postgres_gitea_schema
+  changed_when: false
+  when:
+    - inventory_hostname == 'core-data-postgres'
+    - gitea_db_password is defined
+    - gitea_db_password | length > 0
+  tags:
+    - postgres
+    - database

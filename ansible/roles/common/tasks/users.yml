@@ -1,0 +1,37 @@
+---
+# User accounts management
+- name: Ensure admin operator group exists
+  ansible.builtin.group:
+    name: admin
+    state: present
+  when: inventory_hostname != 'localhost'
+
+- name: Ensure admin operator user exists
+  ansible.builtin.user:
+    name: admin
+    group: admin
+    groups:
+      - sudo
+    append: true
+    shell: /bin/bash
+    create_home: true
+    state: present
+  when: inventory_hostname != 'localhost'
+
+- name: Deploy authorized SSH key for admin operator
+  ansible.posix.authorized_key:
+    user: admin
+    state: present
+    key: "{{ lookup('file', '/srv/admin/secrets/id_admin.pub', errors='ignore') | default(lookup('file', playbook_dir ~ '/../secrets/id_admin.pub', errors='ignore'), true) | default(lookup('file', role_path ~ '/../../secrets/id_admin.pub', errors='ignore'), true) | trim }}"
+  when:
+    - inventory_hostname != 'localhost'
+
+- name: Ensure admin operator has passwordless sudo privileges
+  ansible.builtin.copy:
+    dest: /etc/sudoers.d/99-admin-operator
+    content: "admin ALL=(ALL) NOPASSWD:ALL\n"
+    owner: root
+    group: root
+    mode: "0440"
+    validate: "visudo -cf %s"
+  when: inventory_hostname != 'localhost'

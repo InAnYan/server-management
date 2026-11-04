@@ -1,0 +1,57 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ansible/ansible-lint/main/src/ansiblelint/schemas/ansible.json
+---
+# Proxmox host baseline packages (excludes qemu-guest-agent)
+essential_packages:
+  - curl
+  - ca-certificates
+  - gnupg
+  - rsync
+  - dnsutils
+  - iproute2
+  - net-tools
+  - sudo
+  - htop
+  - tmux
+  - ncdu
+  - jq
+  - unzip
+  - vim
+  - nano
+  - chrony
+  - unattended-upgrades
+  - socat
+
+host_port_forwards:
+  - name: caddy-ingress
+    protocol: tcp
+    host_ports:
+      - 80
+      - 443
+    dest_ip: "10.10.1.10"
+    interfaces:
+      - vmbr0
+      - tailscale0
+  - name: dns-tcp
+    protocol: tcp
+    host_ports:
+      - 53
+    dest_ip: "10.11.0.10"
+    interfaces:
+      - vmbr0
+      - tailscale0
+  - name: dns-udp
+    protocol: udp
+    host_ports:
+      - 53
+    dest_ip: "10.11.0.10"
+    interfaces:
+      - vmbr0
+      - tailscale0
+  - name: gitea-ssh
+    protocol: tcp
+    host_ports:
+      - 2222
+    dest_ip: "10.10.1.12"
+    interfaces:
+      - vmbr0
+      - tailscale0

@@ -1,0 +1,117 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ansible/ansible-lint/main/src/ansiblelint/schemas/ansible.json
+---
+# [impl->req~host-port-forwarding-ansible~1]
+- name: Ensure IPv4 forwarding is enabled
+  ansible.posix.sysctl:
+    name: net.ipv4.ip_forward
+    value: "1"
+    state: present
+    reload: true
+  tags:
+    - host_port_forward
+
+- name: Remove legacy iptables port forward block from /etc/network/interfaces
+  ansible.builtin.blockinfile:
+    path: /etc/network/interfaces
+    marker: "# {mark} ANSIBLE MANAGED PORT FORWARDS"
+    state: absent
+  tags:
+    - host_port_forward
+
+- name: Flush legacy iptables port forwarding rules from active kernel
+  ansible.builtin.shell: |
+    {% for rule in host_port_forwards %}
+    {% set proto = rule.protocol | default('tcp') %}
+    {% set ports = rule.host_ports | join(',') %}
+    {% set target = rule.dest_ip ~ (':' ~ rule.dest_port if rule.dest_port is defined else '') %}
+    {% set ifaces = rule.interfaces | default([rule.interface | default('vmbr0')]) %}
+    {% for iface in ifaces %}
+    while iptables -t nat -D PREROUTING -i {{ iface }} -p {{ proto }} -m multiport --dports {{ ports }} -j DNAT --to-destination {{ target }} 2>/dev/null; do :; done
+    while iptables -D FORWARD -i {{ iface }} -p {{ proto }} -d {{ rule.dest_ip }} -m multiport --dports {{ rule.dest_port | default(ports) }} -j ACCEPT 2>/dev/null; do :; done
+    while iptables -t nat -D POSTROUTING -d {{ rule.dest_ip }} -p {{ proto }} -m multiport --dports {{ rule.dest_port | default(ports) }} -j MASQUERADE 2>/dev/null; do :; done
+    {% endfor %}
+    {% endfor %}
+  changed_when: false
+  tags:
+    - host_port_forward
+
+- name: Deploy systemd TCP socket proxy units
+  ansible.builtin.template:
+    src: port-forward.socket.j2
+    dest: "/etc/systemd/system/port-forward-{{ item.0.name }}-{{ item.1 }}.socket"
+    owner: root
+    group: root
+    mode: "0644"
+  loop: "{{ host_port_forwards | subelements('host_ports') }}"
+  loop_control:
+    loop_var: item
+  when: (item.0.protocol | default('tcp')) == 'tcp'
+  vars:
+    rule: "{{ item.0 }}"
+    forward_port: "{{ item.1 }}"
+  tags:
+    - host_port_forward
+
+- name: Deploy systemd TCP service proxy units
+  ansible.builtin.template:
+    src: port-forward.service.j2
+    dest: "/etc/systemd/system/port-forward-{{ item.0.name }}-{{ item.1 }}.service"
+    owner: root
+    group: root
+    mode: "0644"
+  loop: "{{ host_port_forwards | subelements('host_ports') }}"
+  loop_control:
+    loop_var: item
+  when: (item.0.protocol | default('tcp')) == 'tcp'
+  vars:
+    rule: "{{ item.0 }}"
+    forward_port: "{{ item.1 }}"
+  tags:
+    - host_port_forward
+
+- name: Deploy systemd UDP service proxy units
+  ansible.builtin.template:
+    src: port-forward-udp.service.j2
+    dest: "/etc/systemd/system/port-forward-{{ item.0.name }}-{{ item.1 }}.service"
+    owner: root
+    group: root
+    mode: "0644"
+  loop: "{{ host_port_forwards | subelements('host_ports') }}"
+  loop_control:
+    loop_var: item
+  when: (item.0.protocol | default('tcp')) == 'udp'
+  vars:
+    rule: "{{ item.0 }}"
+    forward_port: "{{ item.1 }}"
+  tags:
+    - host_port_forward
+
+- name: Reload systemd daemon
+  ansible.builtin.systemd:
+    daemon_reload: true
+  tags:
+    - host_port_forward
+
+- name: Enable and start systemd TCP socket proxy units
+  ansible.builtin.systemd:
+    name: "port-forward-{{ item.0.name }}-{{ item.1 }}.socket"
+    enabled: true
+    state: started
+  loop: "{{ host_port_forwards | subelements('host_ports') }}"
+  loop_control:
+    loop_var: item
+  when: (item.0.protocol | default('tcp')) == 'tcp'
+  tags:
+    - host_port_forward
+
+- name: Enable and start systemd UDP service proxy units
+  ansible.builtin.systemd:
+    name: "port-forward-{{ item.0.name }}-{{ item.1 }}.service"
+    enabled: true
+    state: started
+  loop: "{{ host_port_forwards | subelements('host_ports') }}"
+  loop_control:
+    loop_var: item
+  when: (item.0.protocol | default('tcp')) == 'udp'
+  tags:
+    - host_port_forward

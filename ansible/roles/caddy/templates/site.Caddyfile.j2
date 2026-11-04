@@ -1,0 +1,11 @@
+{% set target_ip = item.ip | default(hostvars[item.host].ansible_host if (item.host is defined and item.host in hostvars) else item.host | default('127.0.0.1')) %}
+{% set target_port = item.port | default(80) %}
+{% set target_proto = item.protocol | default('http') %}
+{% set upstream_url = item.upstream | default(target_proto ~ '://' ~ target_ip ~ ':' ~ target_port) %}
+{{ item.domain }} {
+{% if item.maintenance | default(false) %}
+    respond "Service Temporarily Unavailable - Maintenance" 503
+{% else %}
+    reverse_proxy {{ upstream_url }}
+{% endif %}
+}

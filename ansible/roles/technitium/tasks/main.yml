@@ -1,0 +1,136 @@
+---
+# Technitium DNS server role tasks
+# [impl->req~app-accounts-ansible~1]
+
+- name: Ensure Technitium configuration directory exists
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+  loop:
+    - "{{ technitium_dir }}"
+    - "{{ technitium_dir }}/config"
+  tags:
+    - technitium
+
+- name: Check if systemd-resolved is active
+  ansible.builtin.systemd:
+    name: systemd-resolved
+  register: systemd_resolved_check
+  failed_when: false
+  tags:
+    - technitium
+
+- name: Stop and disable systemd-resolved if active to free port 53
+  ansible.builtin.systemd:
+    name: systemd-resolved
+    state: stopped
+    enabled: false
+  when:
+    - systemd_resolved_check.status is defined
+    - systemd_resolved_check.status.ActiveState is defined
+    - systemd_resolved_check.status.ActiveState == 'active'
+  tags:
+    - technitium
+
+- name: Deploy Technitium Docker Compose configuration
+  ansible.builtin.template:
+    src: docker-compose.yml.j2
+    dest: "{{ technitium_dir }}/docker-compose.yml"
+    owner: root
+    group: root
+    mode: "0640"
+  register: technitium_compose_file_result
+  tags:
+    - technitium
+
+- name: Pull and start Technitium container
+  ansible.builtin.command:
+    cmd: docker compose up -d
+    chdir: "{{ technitium_dir }}"
+  register: technitium_compose_result
+  changed_when: "'Started' in technitium_compose_result.stdout or 'Recreated' in technitium_compose_result.stdout or 'Pulling' in technitium_compose_result.stdout"
+  tags:
+    - technitium
+
+- name: Wait for Technitium HTTP endpoint to respond
+  ansible.builtin.uri:
+    url: "http://127.0.0.1:{{ technitium_http_port }}/api/user/login"
+    status_code:
+      - 200
+      - 400
+      - 401
+    return_content: false
+  register: technitium_health
+  until: technitium_health.status in [200, 400, 401]
+  retries: 20
+  delay: 3
+  tags:
+    - technitium
+
+- name: Setup or rotate Technitium administrator account
+  ansible.builtin.include_tasks: setup_admin.yml
+
+- name: Check existing Technitium DNS zones
+  ansible.builtin.uri:
+    url: "http://127.0.0.1:{{ technitium_http_port }}/api/zones/list?token={{ technitium_token }}"
+    method: GET
+    return_content: true
+  register: technitium_zones_result
+  when: technitium_token is defined
+  tags:
+    - technitium
+
+- name: Create primary DNS zone
+  ansible.builtin.uri:
+    url: "http://127.0.0.1:{{ technitium_http_port }}/api/zones/create?token={{ technitium_token }}&zone={{ technitium_zone }}&type=Primary"
+    method: GET
+    return_content: true
+  register: technitium_create_zone
+  when:
+    - technitium_token is defined
+    - technitium_zone is defined
+    - technitium_zones_result.json is defined
+    - technitium_zone not in (technitium_zones_result.json.response.zones | map(attribute='name') | list)
+  tags:
+    - technitium
+
+- name: Query DNS records for declared domains
+  ansible.builtin.uri:
+    url: "http://127.0.0.1:{{ technitium_http_port }}/api/zones/records/get?token={{ technitium_token }}&zone={{ technitium_zone }}&domain={{ item.domain }}"
+    method: GET
+    return_content: true
+  loop: "{{ technitium_records }}"
+  register: technitium_records_check
+  when:
+    - technitium_token is defined
+    - technitium_zone is defined
+  tags:
+    - technitium
+
+- name: Create or update DNS A records
+  ansible.builtin.uri:
+    url: "http://127.0.0.1:{{ technitium_http_port }}/api/zones/records/add?token={{ technitium_token }}&zone={{ technitium_zone }}&domain={{ item.item.domain }}&type=A&ipAddress={{ item.item.ip }}&ttl=300&comments={{ item.item.comment | default('Managed by Ansible') | urlencode }}"
+    method: GET
+    return_content: true
+  loop: "{{ technitium_records_check.results }}"
+  when:
+    - technitium_token is defined
+    - technitium_zone is defined
+    - item.json is defined
+    - (item.json.response.records | selectattr('type', 'equalto', 'A') | list | length) == 0
+  tags:
+    - technitium
+
+- name: Configure Technitium SOA default responsible person
+  ansible.builtin.uri:
+    url: "http://127.0.0.1:{{ technitium_http_port }}/api/settings/set?token={{ technitium_token }}&defaultResponsiblePerson={{ technitium_admin_email }}"
+    method: GET
+    return_content: true
+  when:
+    - technitium_token is defined
+    - technitium_admin_email is defined
+  tags:
+    - technitium

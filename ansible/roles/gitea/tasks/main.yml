@@ -1,0 +1,67 @@
+---
+# Gitea service role tasks
+# [impl->req~app-accounts-ansible~1]
+
+- name: Ensure Gitea base directory exists
+  ansible.builtin.file:
+    path: "{{ gitea_dir }}"
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+  tags:
+    - gitea
+    - git
+
+- name: Ensure Gitea data directory exists
+  ansible.builtin.file:
+    path: "{{ gitea_dir }}/data"
+    state: directory
+    owner: "1000"
+    group: "1000"
+    mode: "0755"
+  tags:
+    - gitea
+    - git
+
+- name: Deploy Gitea Docker Compose configuration
+  ansible.builtin.template:
+    src: docker-compose.yml.j2
+    dest: "{{ gitea_dir }}/docker-compose.yml"
+    owner: root
+    group: root
+    mode: "0600"
+  register: gitea_compose_file_result
+  tags:
+    - gitea
+    - git
+
+- name: Pull and start Gitea container
+  ansible.builtin.command:
+    cmd: docker compose up -d
+    chdir: "{{ gitea_dir }}"
+  register: gitea_compose_result
+  changed_when: "'Started' in gitea_compose_result.stdout or 'Recreated' in gitea_compose_result.stdout or 'Pulling' in gitea_compose_result.stdout"
+  tags:
+    - gitea
+    - git
+
+- name: Wait for Gitea Web UI to be ready
+  ansible.builtin.uri:
+    url: "http://127.0.0.1:{{ gitea_http_port }}/"
+    status_code:
+      - 200
+    return_content: false
+  register: gitea_health
+  until: gitea_health.status == 200
+  retries: 30
+  delay: 3
+  tags:
+    - gitea
+    - git
+
+- name: Setup or rotate Gitea administrator account
+  ansible.builtin.include_tasks: setup_admin.yml
+  tags:
+    - gitea
+    - git

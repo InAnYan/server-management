@@ -1,0 +1,15 @@
+---
+# Uptime Kuma role defaults
+uptimekuma_image: "louislam/uptime-kuma:1"
+uptimekuma_dir: "/opt/uptimekuma"
+uptimekuma_port: 3001
+uptimekuma_admin_user: "admin"
+uptimekuma_admin_password: "{{ lookup('file', '/srv/secrets/uptime_kuma_admin_password', errors='ignore') | default(lookup('file', '/srv/admin/uptime_kuma_admin_password', errors='ignore'), true) | default('ChangeMeUptimeKumaAdmin123!', true) | trim }}"
+uptimekuma_old_admin_password: "{{ lookup('file', '/srv/secrets/uptime_kuma_admin_password.old', errors='ignore') | default(lookup('file', '/srv/admin/uptime_kuma_admin_password.old', errors='ignore'), true) | default('', true) | trim }}"
+uptimekuma_probe_user: "{{ uptime_kuma_probe_user | default('uptimekuma_probe') }}"
+uptimekuma_probe_password: "{{ lookup('file', '/srv/secrets/uptime_kuma_probe_password', errors='ignore') | default(lookup('file', '/srv/admin/uptime_kuma_probe_password', errors='ignore'), true) | default('ChangeMeProbePassword123!', true) | trim }}"
+uptimekuma_domain: "{{ uptimekuma_domain | default('status.' ~ (dns_zone_name | default('example.com'))) }}"
+technitium_internal_ip: "10.11.0.10"
+postgres_internal_ip: "10.10.2.10"
+gitea_internal_ip: "10.10.1.12"
+uptimekuma_server_public_ip: "{{ server_public_ip | default('192.0.2.1') }}"

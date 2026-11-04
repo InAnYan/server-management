@@ -1,0 +1,15 @@
+---
+# Variables for core coordinator hosts (e.g. core-coord-caddy)
+caddy_sites:
+  - name: technitium
+    domain: "{{ technitium_domain }}"
+    host: core-app-technitium
+    port: 80
+  - name: uptimekuma
+    domain: "{{ uptimekuma_domain }}"
+    host: core-coord-uptimekuma
+    port: 3001
+  - name: gitea
+    domain: "{{ gitea_domain }}"
+    host: core-coord-gitea
+    port: 3000

@@ -1,0 +1,40 @@
+---
+# Global configuration variables for all VMs
+
+# System Timezone
+system_timezone: "UTC"
+
+# Core Operator Username (matches Proxmox host administration user)
+host_admin_user: "ruslan"
+
+# Global DNS zone and core service endpoints
+dns_zone_name: "{{ vault_dns_zone_name | default(custom_dns_zone_name | default('example.com')) }}"
+server_public_ip: "{{ vault_server_public_ip | default(custom_server_public_ip | default('127.0.0.1')) }}"
+
+technitium_domain: "{{ custom_technitium_domain | default('dns.' ~ dns_zone_name) }}"
+uptimekuma_domain: "{{ custom_uptimekuma_domain | default('status.' ~ dns_zone_name) }}"
+gitea_domain: "{{ custom_gitea_domain | default('git.' ~ dns_zone_name) }}"
+
+# Essential baseline packages for Debian cloud images
+essential_packages:
+  # Proxmox integration (clean shutdown, IP discovery, ballooning)
+  - qemu-guest-agent
+  # Network & transfer utilities
+  - curl
+  - ca-certificates
+  - gnupg
+  - rsync
+  - dnsutils
+  - iproute2
+  - net-tools
+  # Administration & debugging tools
+  - sudo
+  - htop
+  - tmux
+  - ncdu
+  - jq
+  - unzip
+  - vim
+  - nano
+  # Firewall baseline
+  - ufw

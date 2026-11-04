@@ -1,0 +1,80 @@
+---
+- name: Check if Technitium admin password is already configured
+  ansible.builtin.uri:
+    url: "http://127.0.0.1:{{ technitium_http_port }}/api/user/login?user={{ technitium_admin_user }}&pass={{ technitium_admin_password }}"
+    method: GET
+    return_content: true
+  register: technitium_login_check
+  failed_when: false
+  tags:
+    - technitium
+    - setup_admin
+
+- name: Authenticate with old or default password if rotation needed
+  ansible.builtin.uri:
+    url: "http://127.0.0.1:{{ technitium_http_port }}/api/user/login?user={{ technitium_admin_user }}&pass={{ item }}"
+    method: GET
+    return_content: true
+  loop:
+    - "{{ technitium_old_admin_password }}"
+    - "admin"
+  register: technitium_auth_fallback
+  when:
+    - technitium_login_check.json is not defined or technitium_login_check.json.status != 'ok'
+  failed_when: false
+  tags:
+    - technitium
+    - setup_admin
+
+- name: Identify valid session token and current password for password update
+  ansible.builtin.set_fact:
+    technitium_current_session: "{{ (technitium_auth_fallback.results | selectattr('json', 'defined') | selectattr('json.status', 'defined') | selectattr('json.status', 'equalto', 'ok') | list | first) }}"
+  when:
+    - technitium_login_check.json is not defined or technitium_login_check.json.status != 'ok'
+    - (technitium_auth_fallback.results | selectattr('json', 'defined') | selectattr('json.status', 'defined') | selectattr('json.status', 'equalto', 'ok') | list | length) > 0
+  tags:
+    - technitium
+    - setup_admin
+
+- name: Update Technitium admin password via API
+  ansible.builtin.uri:
+    url: "http://127.0.0.1:{{ technitium_http_port }}/api/user/changePassword?token={{ technitium_current_session.json.token }}&user={{ technitium_admin_user }}&pass={{ technitium_current_session.item }}&newPass={{ technitium_admin_password }}"
+    method: GET
+    return_content: true
+  when: technitium_current_session is defined
+  tags:
+    - technitium
+    - setup_admin
+
+- name: Create Technitium Ansible API token
+  ansible.builtin.uri:
+    url: "http://127.0.0.1:{{ technitium_http_port }}/api/user/createToken?user={{ technitium_admin_user }}&pass={{ technitium_admin_password }}&tokenName=Ansible"
+    method: GET
+    return_content: true
+  register: technitium_token_result
+  failed_when: false
+  tags:
+    - technitium
+    - setup_admin
+
+- name: Set Technitium active API token fact
+  ansible.builtin.set_fact:
+    technitium_token: "{{ technitium_token_result.json.token }}"
+  when:
+    - technitium_token_result.json is defined
+    - technitium_token_result.json.token is defined
+  tags:
+    - technitium
+    - setup_admin
+
+- name: Save Technitium API token to control machine for operator use
+  ansible.builtin.copy:
+    content: "{{ technitium_token }}"
+    dest: /srv/secrets/technitium_api_token
+    group: sudo
+    mode: "0640"
+  delegate_to: localhost
+  when: technitium_token is defined
+  tags:
+    - technitium
+    - setup_admin

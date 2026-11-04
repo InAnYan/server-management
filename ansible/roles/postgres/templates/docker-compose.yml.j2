@@ -1,0 +1,21 @@
+# Ansible managed: docker-compose for PostgreSQL
+services:
+  postgres:
+    image: postgres:{{ postgres_version }}
+    container_name: {{ postgres_container_name }}
+    restart: unless-stopped
+    ports:
+      - "{{ postgres_port }}:5432"
+    environment:
+      POSTGRES_USER: "{{ postgres_admin_user }}"
+      POSTGRES_PASSWORD: "{{ postgres_admin_password }}"
+      POSTGRES_HOST_AUTH_METHOD: "scram-sha-256"
+      POSTGRES_DB: "{{ postgres_db }}"
+      PGDATA: /var/lib/postgresql/data/pgdata
+    volumes:
+      - ./data:/var/lib/postgresql/data:Z
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U {{ postgres_admin_user }} -d {{ postgres_db }}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5

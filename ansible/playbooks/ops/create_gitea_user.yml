@@ -1,0 +1,13 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ansible/ansible-lint/main/src/ansiblelint/schemas/ansible.json
+---
+- name: Create or update Gitea user account
+  hosts: core-coord-gitea
+  become: true
+  vars:
+    is_admin: false
+    must_change_password: false
+  tasks:
+    - name: Create or update user account in Gitea
+      ansible.builtin.include_role:
+        name: gitea
+        tasks_from: create_user.yml

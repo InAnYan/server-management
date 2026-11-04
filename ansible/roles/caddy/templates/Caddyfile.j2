@@ -1,0 +1,9 @@
+{
+    email {{ caddy_email }}
+}
+
+import /etc/caddy/conf.d/*
+
+:{{ caddy_http_port }} {
+    respond "core-coord-caddy reverse proxy online" 200
+}

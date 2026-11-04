@@ -1,0 +1,25 @@
+# Example vault file for encrypted credentials.
+# Encrypt this file with: ansible-vault encrypt ansible/group_vars/all/vault.yml
+# Or edit an encrypted file with: ansible-vault edit ansible/group_vars/all/vault.yml
+
+vault_admin_password: "supersecretpassword"
+vault_api_keys:
+  service_a: "token-here"
+
+# Gitea encrypted environment variables & database credentials
+vault_gitea_admin_password: "supersecretgiteaadminpassword"
+vault_gitea_db_password: "supersecretgiteadbpassword"
+vault_gitea_env:
+  USER_UID: "1000"
+  USER_GID: "1000"
+  GITEA__database__DB_TYPE: "postgres"
+  GITEA__database__HOST: "10.10.2.10:5432"
+  GITEA__database__NAME: "giteadb"
+  GITEA__database__USER: "gitea"
+  GITEA__server__DOMAIN: "git.example.com"
+  GITEA__server__SSH_DOMAIN: "git.example.com"
+  GITEA__server__ROOT_URL: "https://git.example.com/"
+  GITEA__server__SSH_PORT: "2222"
+  GITEA__server__SSH_LISTEN_PORT: "22"
+  GITEA__service__DISABLE_REGISTRATION: "true"
+  GITEA__security__INSTALL_LOCK: "true"

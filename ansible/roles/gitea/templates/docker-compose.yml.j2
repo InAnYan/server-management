@@ -1,0 +1,17 @@
+# Ansible managed: docker-compose for Gitea Git service
+services:
+  server:
+    image: {{ gitea_image }}
+    container_name: core-gitea
+    restart: unless-stopped
+    environment:
+{% for key, val in (gitea_default_env | combine(gitea_custom_env)).items() %}
+      {{ key }}: "{{ val }}"
+{% endfor %}
+    volumes:
+      - ./data:/data
+      - /etc/timezone:/etc/timezone:ro
+      - /etc/localtime:/etc/localtime:ro
+    ports:
+      - "{{ gitea_http_port }}:3000"
+      - "{{ gitea_ssh_port }}:22"

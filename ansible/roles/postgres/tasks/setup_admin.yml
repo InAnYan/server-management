@@ -1,0 +1,12 @@
+---
+- name: Setup or rotate PostgreSQL administrator password
+  ansible.builtin.command:
+    cmd: >
+      docker exec -i {{ postgres_container_name }} psql -U {{ postgres_admin_user }} -d {{ postgres_db }} -c "
+      ALTER ROLE {{ postgres_admin_user }} WITH ENCRYPTED PASSWORD '{{ postgres_admin_password }}';
+      "
+  changed_when: true
+  tags:
+    - postgres
+    - database
+    - setup_admin

@@ -1,0 +1,23 @@
+---
+# Default variables for Technitium DNS server role
+technitium_dir: /opt/technitium
+technitium_image: technitium/dns-server:latest
+technitium_http_port: 80
+technitium_dns_port: 53
+technitium_domain: "{{ technitium_domain | default('dns.' ~ (dns_zone_name | default('example.com'))) }}"
+technitium_zone: "{{ dns_zone_name | default('example.com') }}"
+technitium_admin_email: "{{ caddy_acme_email | default('admin@example.com') }}"
+technitium_public_ip: "{{ server_public_ip | default('127.0.0.1') }}"
+technitium_admin_user: "admin"
+technitium_admin_password: "{{ lookup('file', '/srv/secrets/technitium_admin_password', errors='ignore') | default(lookup('file', '/srv/admin/technitium_admin_password', errors='ignore'), true) | default('ChangeMeTechnitiumPassword123!', true) | trim }}"
+technitium_old_admin_password: "{{ lookup('file', '/srv/secrets/technitium_admin_password.old', errors='ignore') | default(lookup('file', '/srv/admin/technitium_admin_password.old', errors='ignore'), true) | default('admin', true) | trim }}"
+technitium_records:
+  - domain: "{{ technitium_domain }}"
+    ip: "{{ technitium_public_ip }}"
+    comment: "Public DNS endpoint for Technitium dashboard"
+  - domain: "{{ uptimekuma_domain }}"
+    ip: "{{ technitium_public_ip }}"
+    comment: "Public DNS endpoint for Uptime Kuma status page"
+  - domain: "{{ gitea_domain }}"
+    ip: "{{ technitium_public_ip }}"
+    comment: "Public DNS endpoint for Gitea service"

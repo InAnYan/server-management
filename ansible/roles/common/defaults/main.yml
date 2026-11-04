@@ -1,0 +1,5 @@
+---
+common_timezone: "{{ system_timezone | default('UTC') }}"
+common_packages: "{{ essential_packages }}"
+journal_system_max_use: "{{ '1G' if (inventory_hostname in groups['proxmox'] | default([])) else '500M' }}"
+journal_system_keep_free: "1G"

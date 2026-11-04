@@ -1,0 +1,58 @@
+---
+# Bootstrap host environment, SSH keys, and service secrets
+
+- name: Ensure administration secrets directory exists
+  ansible.builtin.file:
+    path: /srv/admin/secrets
+    state: directory
+    owner: "{{ host_admin_user | default('ruslan') }}"
+    group: sudo
+    mode: "0700"
+
+- name: Auto-generate Ansible automation SSH keypair if missing
+  ansible.builtin.command:
+    cmd: ssh-keygen -q -t ed25519 -N "" -C "ansible-automation" -f /srv/admin/secrets/id_ansible
+    creates: /srv/admin/secrets/id_ansible
+
+- name: Auto-generate Admin operator SSH keypair if missing
+  ansible.builtin.command:
+    cmd: ssh-keygen -q -t ed25519 -N "" -C "admin-operator" -f /srv/admin/secrets/id_admin
+    creates: /srv/admin/secrets/id_admin
+
+- name: Ensure correct permissions on SSH key files
+  ansible.builtin.file:
+    path: "/srv/admin/secrets/{{ item.file }}"
+    owner: "{{ host_admin_user | default('ruslan') }}"
+    group: sudo
+    mode: "{{ item.mode }}"
+  loop:
+    - { file: "id_ansible", mode: "0600" }
+    - { file: "id_ansible.pub", mode: "0644" }
+    - { file: "id_admin", mode: "0600" }
+    - { file: "id_admin.pub", mode: "0644" }
+
+- name: Ensure persistent host secrets directory exists
+  ansible.builtin.file:
+    path: /srv/secrets
+    state: directory
+    owner: "{{ host_admin_user | default('ruslan') }}"
+    group: sudo
+    mode: "0700"
+
+- name: Auto-generate administrative credentials if missing
+  ansible.builtin.copy:
+    dest: "/srv/secrets/{{ item }}"
+    content: "{{ lookup('password', '/srv/secrets/' ~ item ~ ' length=32 chars=ascii_letters,digits') }}"
+    owner: "{{ host_admin_user | default('ruslan') }}"
+    group: sudo
+    mode: "0600"
+    force: false
+  loop:
+    - postgres_admin_password
+    - dev_postgres_admin_password
+    - prod_postgres_admin_password
+    - technitium_admin_password
+    - uptime_kuma_admin_password
+    - uptime_kuma_probe_password
+    - gitea_admin_password
+    - gitea_db_password

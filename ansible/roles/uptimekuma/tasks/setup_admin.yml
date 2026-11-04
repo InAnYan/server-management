@@ -1,0 +1,55 @@
+---
+- name: Setup or rotate Uptime Kuma administrator account
+  ansible.builtin.command:
+    cmd: >
+      docker exec
+      -e UPTIME_KUMA_ADMIN_USER={{ uptimekuma_admin_user }}
+      -e UPTIME_KUMA_ADMIN_PASSWORD={{ uptimekuma_admin_password }}
+      -e UPTIME_KUMA_OLD_PASSWORD={{ uptimekuma_old_admin_password | default('') }}
+      core-uptimekuma
+      node -e '
+      const io = require("/app/node_modules/socket.io-client");
+      const socket = io("http://localhost:3001");
+      socket.on("connect", () => {
+        socket.emit("login", { username: process.env.UPTIME_KUMA_ADMIN_USER, password: process.env.UPTIME_KUMA_ADMIN_PASSWORD, token: "" }, (res) => {
+          if (res && res.ok) {
+            console.log("ALREADY_SET");
+            process.exit(0);
+          }
+          socket.emit("setup", process.env.UPTIME_KUMA_ADMIN_USER, process.env.UPTIME_KUMA_ADMIN_PASSWORD, (setupRes) => {
+            if (setupRes && setupRes.ok) {
+              console.log("SUCCESS_INIT:", setupRes.msg);
+              process.exit(0);
+            }
+            if (process.env.UPTIME_KUMA_OLD_PASSWORD) {
+              socket.emit("login", { username: process.env.UPTIME_KUMA_ADMIN_USER, password: process.env.UPTIME_KUMA_OLD_PASSWORD, token: "" }, (loginOld) => {
+                if (loginOld && loginOld.ok) {
+                  socket.emit("changePassword", { currentPassword: process.env.UPTIME_KUMA_OLD_PASSWORD, newPassword: process.env.UPTIME_KUMA_ADMIN_PASSWORD }, (chRes) => {
+                    if (chRes && chRes.ok) {
+                      console.log("SUCCESS_ROTATED:", chRes.msg);
+                      process.exit(0);
+                    } else {
+                      console.log("CHANGE_FAIL:", chRes);
+                      process.exit(1);
+                    }
+                  });
+                } else {
+                  console.log("LOGIN_OLD_FAIL:", loginOld);
+                  process.exit(1);
+                }
+              });
+            } else {
+              console.log("SETUP_FAILED_NO_OLD_PASS:", setupRes);
+              process.exit(0);
+            }
+          });
+        });
+      });
+      setTimeout(() => { process.exit(1); }, 6000);
+      '
+  register: uptimekuma_init_result
+  changed_when: "'SUCCESS' in uptimekuma_init_result.stdout"
+  failed_when: false
+  tags:
+    - uptimekuma
+    - setup_admin

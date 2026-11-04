@@ -1,0 +1,43 @@
+---
+- name: Validate Uptime Kuma new administrator parameters
+  ansible.builtin.assert:
+    that:
+      - admin_username is defined and (admin_username | length > 0)
+      - admin_password is defined and (admin_password | length > 0)
+    fail_msg: "Both 'admin_username' and 'admin_password' must be specified."
+
+- name: Create or update administrator account in Uptime Kuma
+  ansible.builtin.command:
+    cmd: >
+      docker exec
+      -e NEW_ADMIN_USER={{ admin_username }}
+      -e NEW_ADMIN_PASSWORD={{ admin_password }}
+      core-uptimekuma
+      node -e '
+      const Database = require("/app/server/database");
+      const { R } = require("redbean-node");
+      const passwordHash = require("/app/server/password-hash");
+
+      (async () => {
+        try {
+          Database.init({});
+          await Database.connect(false, false, true);
+          let user = await R.findOne("user", " username = ? ", [ process.env.NEW_ADMIN_USER ]);
+          if (!user) {
+            user = R.dispense("user");
+            user.username = process.env.NEW_ADMIN_USER;
+          }
+          user.password = passwordHash.generate(process.env.NEW_ADMIN_PASSWORD);
+          user.active = 1;
+          await R.store(user);
+          await Database.close();
+          console.log("SUCCESS_USER_PROVISIONED");
+          process.exit(0);
+        } catch (err) {
+          console.error("FAIL_PROVISION:", err);
+          process.exit(1);
+        }
+      })();
+      '
+  register: uptimekuma_create_admin_result
+  changed_when: "'SUCCESS_USER_PROVISIONED' in uptimekuma_create_admin_result.stdout"

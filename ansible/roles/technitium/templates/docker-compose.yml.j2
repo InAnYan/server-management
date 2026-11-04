@@ -1,0 +1,14 @@
+services:
+  technitium:
+    image: {{ technitium_image }}
+    container_name: technitium
+    hostname: {{ ansible_hostname }}
+    restart: unless-stopped
+    ports:
+      - "{{ technitium_http_port }}:5380/tcp"
+      - "{{ technitium_dns_port }}:53/udp"
+      - "{{ technitium_dns_port }}:53/tcp"
+    environment:
+      - DNS_SERVER_DOMAIN={{ technitium_domain }}
+    volumes:
+      - {{ technitium_dir }}/config:/etc/dns

@@ -1,0 +1,13 @@
+[Unit]
+Description=Port Forward UDP Proxy for {{ rule.name }} (UDP {{ forward_port }} to {{ rule.dest_ip }}:{{ rule.dest_port | default(forward_port) }})
+After=network.target
+
+[Service]
+ExecStart=/usr/bin/socat UDP4-LISTEN:{{ forward_port }},fork,reuseaddr UDP4:{{ rule.dest_ip }}:{{ rule.dest_port | default(forward_port) }}
+Restart=always
+RestartSec=3
+PrivateTmp=yes
+PrivateNetwork=no
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,42 @@
+---
+- name: Install baseline system packages
+  ansible.builtin.import_tasks: packages.yml
+  tags:
+    - common
+    - packages
+
+- name: Configure system timezone
+  ansible.builtin.import_tasks: timezone.yml
+  tags:
+    - common
+    - timezone
+
+- name: Configure SSH security and authentication
+  ansible.builtin.import_tasks: ssh.yml
+  tags:
+    - common
+    - ssh
+
+- name: Configure NTP time synchronization
+  ansible.builtin.import_tasks: timesync.yml
+  tags:
+    - common
+    - timesync
+
+- name: Configure persistent systemd journal logging
+  ansible.builtin.import_tasks: journald.yml
+  tags:
+    - common
+    - journald
+
+- name: Configure automatic unattended security upgrades
+  ansible.builtin.import_tasks: unattended_upgrades.yml
+  tags:
+    - common
+    - unattended_upgrades
+
+- name: Configure standard user accounts
+  ansible.builtin.import_tasks: users.yml
+  tags:
+    - common
+    - users

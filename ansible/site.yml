@@ -1,0 +1,81 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ansible/ansible-lint/main/src/ansiblelint/schemas/ansible.json
+---
+# Main configuration playbook
+# [impl->req~configuration-ansible~1]
+
+- name: Bootstrap host environment, SSH keys, and secrets
+  hosts: proxmox
+  become: true
+  roles:
+    - role: bootstrap
+      tags:
+        - bootstrap
+        - secrets
+
+- name: Apply baseline configuration to Proxmox host and VMs
+  hosts: all
+  become: true
+  roles:
+    - role: common
+      tags:
+        - common
+
+- name: Configure Docker container runtime
+  hosts: docker_hosts:!proxmox
+  become: true
+  roles:
+    - role: docker
+      tags:
+        - docker
+
+- name: Deploy PostgreSQL database server
+  hosts: core_databases:dev_databases:prod_databases
+  become: true
+  roles:
+    - role: postgres
+      tags:
+        - postgres
+        - database
+
+- name: Deploy Technitium DNS server
+  hosts: core-app-technitium
+  become: true
+  roles:
+    - role: technitium
+      tags:
+        - technitium
+
+- name: Deploy Uptime Kuma monitoring service
+  hosts: core-coord-uptimekuma
+  become: true
+  roles:
+    - role: uptimekuma
+      tags:
+        - uptimekuma
+        - monitoring
+
+- name: Deploy Gitea Git service
+  hosts: core-coord-gitea
+  become: true
+  roles:
+    - role: gitea
+      tags:
+        - gitea
+        - git
+
+- name: Deploy Caddy reverse proxy
+  hosts: core-coord-caddy
+  become: true
+  roles:
+    - role: caddy
+      tags:
+        - caddy
+
+- name: Configure Proxmox host port forwarding
+  hosts: proxmox
+  become: true
+  roles:
+    - role: host_port_forward
+      tags:
+        - host_port_forward
+        - networking

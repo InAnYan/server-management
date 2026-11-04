@@ -1,0 +1,213 @@
+---
+# Uptime Kuma monitoring service role tasks
+# [impl->req~app-accounts-ansible~1]
+
+- name: Ensure Uptime Kuma directories exist
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+  loop:
+    - "{{ uptimekuma_dir }}"
+    - "{{ uptimekuma_dir }}/data"
+  tags:
+    - uptimekuma
+
+- name: Deploy Uptime Kuma Docker Compose configuration
+  ansible.builtin.template:
+    src: docker-compose.yml.j2
+    dest: "{{ uptimekuma_dir }}/docker-compose.yml"
+    owner: root
+    group: root
+    mode: "0640"
+  register: uptimekuma_compose_file_result
+  tags:
+    - uptimekuma
+
+- name: Pull and start Uptime Kuma container
+  ansible.builtin.command:
+    cmd: docker compose up -d
+    chdir: "{{ uptimekuma_dir }}"
+  register: uptimekuma_compose_result
+  changed_when: "'Started' in uptimekuma_compose_result.stdout or 'Recreated' in uptimekuma_compose_result.stdout or 'Pulling' in uptimekuma_compose_result.stdout"
+  tags:
+    - uptimekuma
+
+- name: Wait for Uptime Kuma Web UI to respond
+  ansible.builtin.uri:
+    url: "http://127.0.0.1:{{ uptimekuma_port }}/"
+    status_code:
+      - 200
+    return_content: false
+  register: uptimekuma_health
+  until: uptimekuma_health.status == 200
+  retries: 25
+  delay: 3
+  tags:
+    - uptimekuma
+
+- name: Setup or rotate Uptime Kuma administrator account
+  ansible.builtin.include_tasks: setup_admin.yml
+
+- name: Authenticate with Uptime Kuma API to acquire session token
+  lucasheld.uptime_kuma.login:
+    api_url: "http://{{ ansible_host }}:{{ uptimekuma_port }}"
+    api_username: "{{ uptimekuma_admin_user }}"
+    api_password: "{{ uptimekuma_admin_password }}"
+  delegate_to: localhost
+  register: kuma_login_resp
+  tags:
+    - uptimekuma
+    - monitoring
+
+- name: Set Uptime Kuma API session token
+  ansible.builtin.set_fact:
+    kuma_api_token: "{{ kuma_login_resp.token }}"
+  delegate_to: localhost
+  tags:
+    - uptimekuma
+    - monitoring
+
+- name: Ensure monitor groups exist
+  lucasheld.uptime_kuma.monitor:
+    api_url: "http://{{ ansible_host }}:{{ uptimekuma_port }}"
+    api_token: "{{ kuma_api_token }}"
+    name: "{{ item }}"
+    type: group
+    state: present
+  delegate_to: localhost
+  loop:
+    - "Core services"
+    - "Core DBs"
+    - "Internal"
+  tags:
+    - uptimekuma
+    - monitoring
+
+- name: Ensure DNS Server monitor exists
+  lucasheld.uptime_kuma.monitor:
+    api_url: "http://{{ ansible_host }}:{{ uptimekuma_port }}"
+    api_token: "{{ kuma_api_token }}"
+    name: "DNS Server Dashboard"
+    parent_name: "Core services"
+    type: http
+    url: "http://{{ technitium_internal_ip }}:80"
+    interval: 60
+    retryInterval: 60
+    accepted_statuscodes:
+      - "200-299"
+    state: present
+  delegate_to: localhost
+  tags:
+    - uptimekuma
+    - monitoring
+
+- name: Ensure Gitea service monitor exists
+  lucasheld.uptime_kuma.monitor:
+    api_url: "http://{{ ansible_host }}:{{ uptimekuma_port }}"
+    api_token: "{{ kuma_api_token }}"
+    name: "Gitea Git Service"
+    parent_name: "Core services"
+    type: http
+    url: "http://{{ gitea_internal_ip }}:3000"
+    interval: 60
+    retryInterval: 60
+    accepted_statuscodes:
+      - "200-299"
+      - "300-399"
+    state: present
+  delegate_to: localhost
+  tags:
+    - uptimekuma
+    - monitoring
+
+- name: Ensure Core PostgreSQL monitor exists
+  lucasheld.uptime_kuma.monitor:
+    api_url: "http://{{ ansible_host }}:{{ uptimekuma_port }}"
+    api_token: "{{ kuma_api_token }}"
+    name: "Core PostgreSQL"
+    parent_name: "Core DBs"
+    type: postgres
+    databaseConnectionString: "postgres://{{ uptimekuma_probe_user }}:{{ uptimekuma_probe_password }}@{{ postgres_internal_ip }}:5432/postgres?sslmode=disable"
+    interval: 60
+    retryInterval: 60
+    state: present
+  delegate_to: localhost
+  tags:
+    - uptimekuma
+    - monitoring
+
+- name: Ensure Host HTTP port 80 monitor exists
+  lucasheld.uptime_kuma.monitor:
+    api_url: "http://{{ ansible_host }}:{{ uptimekuma_port }}"
+    api_token: "{{ kuma_api_token }}"
+    name: "Host HTTP (Port 80)"
+    parent_name: "Internal"
+    type: http
+    url: "http://{{ uptimekuma_server_public_ip }}"
+    interval: 60
+    retryInterval: 60
+    accepted_statuscodes:
+      - "200-299"
+    state: present
+  delegate_to: localhost
+  tags:
+    - uptimekuma
+    - monitoring
+
+- name: Ensure Host HTTPS port 443 monitor exists
+  lucasheld.uptime_kuma.monitor:
+    api_url: "http://{{ ansible_host }}:{{ uptimekuma_port }}"
+    api_token: "{{ kuma_api_token }}"
+    name: "Host HTTPS (Port 443)"
+    parent_name: "Internal"
+    type: http
+    url: "https://{{ uptimekuma_server_public_ip }}"
+    ignoreTls: true
+    interval: 60
+    retryInterval: 60
+    accepted_statuscodes:
+      - "200-299"
+    state: present
+  delegate_to: localhost
+  tags:
+    - uptimekuma
+    - monitoring
+
+- name: Configure public status page
+  lucasheld.uptime_kuma.status_page:
+    api_url: "http://{{ ansible_host }}:{{ uptimekuma_port }}"
+    api_token: "{{ kuma_api_token }}"
+    slug: "main"
+    title: "Main Status"
+    description: "Core services and infrastructure health"
+    theme: auto
+    published: true
+    showTags: false
+    domainNameList: "{{ [ uptimekuma_domain ] if uptimekuma_domain is defined and (uptimekuma_domain | length > 0) else [] }}"
+    publicGroupList:
+      - name: "Core services"
+        weight: 1
+        monitorList:
+          - name: "DNS Server Dashboard"
+            sendUrl: false
+          - name: "Gitea Git Service"
+            sendUrl: false
+    state: present
+  delegate_to: localhost
+  tags:
+    - uptimekuma
+    - monitoring
+
+- name: Configure global entry page and proxy settings
+  lucasheld.uptime_kuma.settings:
+    api_url: "http://{{ ansible_host }}:{{ uptimekuma_port }}"
+    api_token: "{{ kuma_api_token }}"
+    entryPage: "statusPage-main"
+    trustProxy: true
+  delegate_to: localhost
+  tags:
+    - uptimekuma
+    - monitoring

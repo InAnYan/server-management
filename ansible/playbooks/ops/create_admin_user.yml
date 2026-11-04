@@ -1,0 +1,41 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ansible/ansible-lint/main/src/ansiblelint/schemas/ansible.json
+---
+- name: Create new administrator account in Technitium DNS
+  hosts: core-app-technitium
+  become: true
+  vars:
+    admin_username: "{{ username }}"
+    admin_password: "{{ password }}"
+    admin_display_name: "{{ display_name | default(username) }}"
+  tasks:
+    - name: Create Technitium administrator
+      ansible.builtin.include_role:
+        name: technitium
+        tasks_from: create_admin_user.yml
+      when: service | default('all') in ['all', 'technitium', 'dns']
+
+- name: Create new administrator account in Uptime Kuma
+  hosts: core-coord-uptimekuma
+  become: true
+  vars:
+    admin_username: "{{ username }}"
+    admin_password: "{{ password }}"
+  tasks:
+    - name: Create Uptime Kuma administrator
+      ansible.builtin.include_role:
+        name: uptimekuma
+        tasks_from: create_admin_user.yml
+      when: service | default('all') in ['all', 'uptimekuma', 'uptime-kuma', 'kuma']
+
+- name: Create new administrator account in Gitea
+  hosts: core-coord-gitea
+  become: true
+  vars:
+    is_admin: true
+    email: "{{ user_email | default(email | default(username ~ '@' ~ (dns_zone_name | default('example.com')))) }}"
+  tasks:
+    - name: Create Gitea administrator
+      ansible.builtin.include_role:
+        name: gitea
+        tasks_from: create_user.yml
+      when: service | default('all') in ['all', 'gitea', 'git']

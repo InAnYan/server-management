@@ -146,7 +146,64 @@ All machine-specific identifiers (such as target server hostnames, node names, i
    - In OpenTofu: use `count = var.enable_<service> ? 1 : 0` on the VM module and backup jobs; fallback outputs to `null`.
    - In Ansible: set `enable_<service>` in `ansible/group_vars/all/main.yml`. Classify active nodes into `active_nodes` dynamically in `site.yml` to prevent SSH attempts to unprovisioned VMs. Implement cleanups to purge disabled reverse proxy routes and deconfigure host port forwards.
 
-## 5. Deployment Workflow (Server-First Execution)
+## 5. Virtual Machine Addition Workflow
+
+When adding a new virtual machine workload to the infrastructure, follow this sequential workflow across all layers:
+
+### Step 1: Determine Environment, Category & Allocations
+
+1. **Environment (Category)**: Choose `core`, `dev`, or `prod` per `docs/conventions/naming.md`.
+2. **Type (Subcategory)**: Choose `coord` (core coordinator only), `app` (application workload), or `data` (database / stateful store).
+3. **Naming**: Format as `<environment>-<type>-<name>` (e.g. `dev-app-api`, `core-coord-gitea`).
+4. **VMID & Subnet**: Select an available VMID within the allocated range (Core: `1000-1999`, Dev: `2000-2999`, Prod: `3000-3999`) and assign an IP within the appropriate SDN VNet (`vcoord`, `vcore`, `vcdb`, `vddb`, `vpdb`) per `docs/conventions/networking.md`.
+5. **Resource Pool**: Map to the matching pool (`core_coord`, `core_app`, `core_data`, `dev_data`, `prod_data`).
+
+### Step 2: OpenTofu Infrastructure Code
+
+1. **Workload Definition**: Create `opentofu/vms/<name>.tf`:
+   - Call the unified VM module (`source = "../modules/vm"`).
+   - Set `name`, `node_name`, `vm_id`, `pool_id`, `cores`, `memory`, `disk_size`, `image_id`, `vnet_id`, `ipv4_address`, `ipv4_gateway`, `ssh_public_keys`.
+   - Declare declarative `firewall_rules` directly inside the workload file.
+   - For stateful VMs, attach a daily snapshot backup job (`proxmox_backup_job`).
+   - For optional services, add `count = var.enable_<service> ? 1 : 0` to both the VM module and backup job.
+2. **Variables & Outputs**:
+   - If feature-flagged, add `enable_<service>` in `opentofu/variables.tf`, `opentofu/vms/variables.tf`, and pass it through in `opentofu/vms.tf`.
+   - Export VM ID and IP in `opentofu/vms/outputs.tf` and `opentofu/outputs.tf` (fallback to `null` if optional).
+   - Update `opentofu/terraform.tfvars.example`.
+3. **Validation**: Run `tofu validate` in `opentofu/`.
+
+### Step 3: Secrets & Sensitive Configuration (Sanitized)
+
+1. **Documentation Templates**:
+   - If the workload requires passwords or tokens, declare sanitized template keys in `ansible/group_vars/all/secrets.yml.example` and `vault.yml.example`.
+   - Update `/srv/secrets/<service>_*` generation tasks in `ansible/roles/bootstrap/tasks/main.yml` if secrets should be auto-provisioned.
+2. **Security Compliance**: Never commit plaintext secrets, tokens, or environment-specific credentials to Git.
+
+### Step 4: Ansible Configuration Code
+
+1. **Inventory**: Add the VM to `ansible/inventory/hosts.ini` under the corresponding tier group (`core_coordinators`, `core_apps`, `dev_apps`, etc.) and ensure parent groups (`docker_hosts`, `vms`) include it.
+2. **Role or Playbook Tasks**:
+   - Create a dedicated role in `ansible/roles/<service>/` or assign an existing role.
+   - If containerized, create `docker-compose.yml.j2` and role tasks deploying the service.
+3. **Ingress & Port Forwarding**:
+   - **Reverse Proxy**: If accessible via HTTP/HTTPS, add a site entry to `caddy_sites` in `ansible/group_vars/core_coordinators.yml` with `enabled` toggle.
+   - **Host Port Forwarding**: If exposing external non-HTTP ports on the host, declare systemd proxy rules in `host_port_forwards` in `ansible/group_vars/proxmox.yml`.
+4. **Playbook Integration**:
+   - Add a deployment play to `ansible/site.yml` targeting `<group>:&active_nodes`.
+   - If optional, add `enable_<service>: true` in `ansible/group_vars/all/main.yml` and include the hostname in the `active_nodes` classifier task in `site.yml`.
+
+### Step 5: Documentation & Requirements Traceability (OFT)
+
+1. **Architecture & Usage Docs**:
+   - Update `docs/idea.md` (environment / VM allocation tables).
+   - Update `docs/usage.md` with relevant Ansible tags, operational commands, or container management runbooks.
+   - Update `docs/setup.md` if the bootstrap sequence changes.
+2. **OpenFastTrace**:
+   - If introducing new architecture capabilities or security boundaries, add corresponding `req~...` items under appropriate `feat~...` in `docs/requirements.md`.
+   - Add implementation tags (`[impl->req~...]`) in code/playbooks and operational tags (`<!-- [oman->req~...] -->`) in docs.
+   - Run `oft trace -v all .` to verify 100% trace coverage and zero defects.
+
+## 6. Deployment Workflow (Server-First Execution)
 
 All live infrastructure commands and OpenTofu state reside exclusively on the target server in `/srv/admin`:
 

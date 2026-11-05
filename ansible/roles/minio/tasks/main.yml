@@ -2,16 +2,26 @@
 # MinIO S3 object storage role tasks
 # [impl->req~configuration-ansible~1]
 
-- name: Ensure MinIO configuration and data directories exist
+- name: Ensure MinIO root configuration directory exists
   ansible.builtin.file:
-    path: "{{ item }}"
+    path: "{{ minio_dir }}"
     state: directory
     owner: root
     group: root
+    mode: "0755"
+  tags:
+    - minio
+
+- name: Ensure MinIO data and client directories exist with proper container permissions
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    owner: "65532"
+    group: "65532"
     mode: "0750"
   loop:
-    - "{{ minio_dir }}"
     - "{{ minio_dir }}/data"
+    - "{{ minio_dir }}/.mc"
   tags:
     - minio
 
@@ -55,7 +65,7 @@
     mode: "0755"
     content: |
       #!/bin/sh
-      exec docker run --rm -i --network host -v /root/.mc:/root/.mc minio/mc "$@"
+      exec docker run --rm -i --network host -v {{ minio_dir }}/.mc:/home/nonroot/.mc -v /tmp:/tmp:ro {{ minio_mc_image }} "$@"
   tags:
     - minio
 

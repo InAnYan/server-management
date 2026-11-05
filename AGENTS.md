@@ -6,7 +6,7 @@ This document provides instructions, constraints, and conventions for AI agents 
 
 This repository manages infrastructure and configuration for a Proxmox VE environment:
 
-- **Provisioning layer (`opentofu/`)**: Manages Proxmox host setup, VMs, LXC containers, networks, and storage using OpenTofu (`bpg/proxmox` provider).
+- **Provisioning layer (`opentofu/`)**: Manages Proxmox host setup, VMs, networks, and storage using OpenTofu (`bpg/proxmox` provider).
 - **Configuration layer (`ansible/`)**: Configures operating systems, packages, users, and services on provisioned nodes.
 
 > [!IMPORTANT]
@@ -48,7 +48,10 @@ All machine-specific identifiers (such as target server hostnames, node names, i
 ```text
 .
 ├── .env.example                       # Template for local environment variables
+├── .gitea/workflows/                  # Gitea Actions CI/CD workflows
+├── .github/workflows/                 # GitHub Actions CI/CD workflows
 ├── .gitignore                         # Strict exclusion of secrets, state, and caches
+├── .gitlab-ci.yml                     # GitLab CI configuration
 ├── AGENTS.md                          # Agent rules and repository guidance
 ├── PRIVATE.md                         # Private operational details (gitignored)
 ├── README.md                          # Human-oriented overview and setup instructions
@@ -95,7 +98,7 @@ All machine-specific identifiers (such as target server hostnames, node names, i
 │       ├── caddy.tf                   # VM declaration, firewall rules, backup job
 │       ├── uptimekuma.tf              # VM declaration, firewall rules, backup job
 │       ├── gitea.tf                   # VM declaration, firewall rules, backup job
-│       ├── technitium.tf              # VM declaration, firewall rules, backup job
+│       ├── technitium.tf              # VM declaration, firewall rules, backup job (feature-flagged)
 │       ├── postgres_core.tf           # VM declaration, firewall rules
 │       ├── postgres_dev.tf            # VM declaration, firewall rules
 │       └── postgres_prod.tf           # VM declaration, firewall rules
@@ -105,8 +108,12 @@ All machine-specific identifiers (such as target server hostnames, node names, i
     ├── inventory/
     │   └── hosts.ini                  # Infrastructure inventory (localhost & internal SDN IPs)
     ├── group_vars/                    # Group-level variables
-    │   └── all/
-    │       └── vault.yml.example      # Example encrypted variable structure
+    │   ├── all/                       # Global variables and feature flags
+    │   └── *.yml                      # Tier-specific variable definitions
+    ├── playbooks/
+    │   ├── bootstrap.yml              # Host bootstrap playbook
+    │   └── ops/                       # Operational task playbooks (accounts, rotation, logs, compose)
+    ├── roles/                         # Modular configuration roles
     └── site.yml                       # Primary playbook entrypoint
 ```
 
@@ -129,13 +136,26 @@ All machine-specific identifiers (such as target server hostnames, node names, i
    - If a concept, setting, or specification is already documented in another file, link directly to the relevant document and section.
 6. **No Markdown Dividers**:
    - Do not use horizontal rule dividers (`---`) in markdown documentation. Use headings to structure content.
+7. **Requirements Traceability (OpenFastTrace)**:
+   - All architectural requirements and system features are tracked via OpenFastTrace (OFT) in `docs/requirements.md`.
+   - Maintain the standard trace hierarchy: `feat` (broad feature) &rarr; `req` (concrete specification) &rarr; `impl` (code tag) / `oman` (operational manual tag).
+   - Any modification or addition to infrastructure features must include corresponding requirement updates and tags (`[impl->...]` in code, `<!-- [oman->...] -->` in docs).
+   - Verify trace coverage before committing: `oft trace -v all .` (must report zero defects).
+8. **Feature Flags for Optional Services**:
+   - Optional service VMs (e.g. Technitium DNS) must be toggleable via boolean feature flags (`enable_<service>`).
+   - In OpenTofu: use `count = var.enable_<service> ? 1 : 0` on the VM module and backup jobs; fallback outputs to `null`.
+   - In Ansible: set `enable_<service>` in `ansible/group_vars/all/main.yml`. Classify active nodes into `active_nodes` dynamically in `site.yml` to prevent SSH attempts to unprovisioned VMs. Implement cleanups to purge disabled reverse proxy routes and deconfigure host port forwards.
 
 ## 5. Deployment Workflow (Server-First Execution)
 
 All live infrastructure commands and OpenTofu state reside exclusively on the target server in `/srv/admin`:
 
 1. **Develop**: Edit configurations and documentation locally on your workstation.
-2. **Verify**: Ensure pre-commit checks pass and no secrets or private data are staged.
+2. **Verify**:
+   - Run `tofu validate` in `opentofu/`.
+   - Run `oft trace -v all .` to ensure 100% requirements trace coverage.
+   - Run `npx markdownlint-cli "**/*.md"` to verify documentation formatting.
+   - Run pre-commit checks (`pre-commit run --all-files`) and inspect `git status` / `git diff --staged` to guarantee no `.env`, `PRIVATE.md`, private keys, hostnames, or credentials are staged.
 3. **Push**: Push commits to GitHub (`git push origin main`).
 4. **Deploy on the target server**:
    - Connect to the server via SSH (`ssh <server>` from `PRIVATE.md`).

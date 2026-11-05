@@ -58,7 +58,7 @@
         dest: "/tmp/minio-policy-{{ minio_target_user }}-{{ minio_target_bucket }}.json"
         owner: root
         group: root
-        mode: "0600"
+        mode: "0644"
         content: |
           {
             "Version": "2012-10-17",
@@ -98,7 +98,6 @@
           /tmp/minio-policy-{{ minio_target_user }}-{{ minio_target_bucket }}.json
       register: minio_policy_result
       changed_when: true
-      failed_when: false
 
     - name: Attach bucket IAM policy to user account
       ansible.builtin.command:

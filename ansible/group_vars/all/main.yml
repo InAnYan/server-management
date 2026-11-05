@@ -1,6 +1,9 @@
 ---
 # Global configuration variables for all VMs
 
+# Feature flags
+enable_technitium: true
+
 # System Timezone
 system_timezone: "UTC"
 

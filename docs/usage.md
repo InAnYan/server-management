@@ -187,6 +187,34 @@ ansible-playbook -i inventory/hosts.ini site.yml --tags caddy \
   -e "{'caddy_site': {'name': 'myapp', 'ip': '10.21.0.15', 'port': 8080, 'domain': 'app.example.com'}}"
 ```
 
+## Optional Workloads & Feature Flags
+
+Workloads such as the Technitium DNS server can be toggled on or off via feature flags in OpenTofu and Ansible. When disabled, the VM is not provisioned (or deleted if already running), port forwarding rules on the host are deactivated, and ingress routes on Caddy are automatically purged.
+
+### Disabling or Enabling Technitium DNS
+
+1. **OpenTofu (Infrastructure Layer)**:
+   In `/srv/admin/opentofu/terraform.tfvars`:
+
+   ```hcl
+   enable_technitium = false
+   ```
+
+   Run `tofu plan` and `tofu apply`. If turning off, OpenTofu destroys the `core-app-technitium` VM and its backup job. If turning on, OpenTofu provisions the VM and backup job.
+
+2. **Ansible (Configuration Layer)**:
+   In `/srv/admin/ansible/group_vars/all/main.yml`:
+
+   ```yaml
+   enable_technitium: false
+   ```
+
+   Run `ansible-playbook -i inventory/hosts.ini site.yml`. Ansible automatically:
+   - Excludes `core-app-technitium` from baseline and Docker plays without SSH connection errors.
+   - Skips Technitium configuration tasks (and administrative account playbooks).
+   - Disables and cleans up host port forwarding for port 53 (TCP/UDP).
+   - Removes `/opt/caddy/conf.d/technitium.Caddyfile` from Caddy and reloads the reverse proxy.
+
 ## Relevant Documentation
 
 - [Server Setup Guide](setup.md): Host bootstrap and initial deployment runbook.

@@ -23,6 +23,7 @@ essential_packages:
 
 host_port_forwards:
   - name: caddy-ingress
+    enabled: true
     protocol: tcp
     host_ports:
       - 80
@@ -32,6 +33,7 @@ host_port_forwards:
       - vmbr0
       - tailscale0
   - name: dns-tcp
+    enabled: "{{ enable_technitium | default(true) }}"
     protocol: tcp
     host_ports:
       - 53
@@ -40,6 +42,7 @@ host_port_forwards:
       - vmbr0
       - tailscale0
   - name: dns-udp
+    enabled: "{{ enable_technitium | default(true) }}"
     protocol: udp
     host_ports:
       - 53
@@ -48,6 +51,7 @@ host_port_forwards:
       - vmbr0
       - tailscale0
   - name: gitea-ssh
+    enabled: true
     protocol: tcp
     host_ports:
       - 2222

@@ -35,3 +35,9 @@ variable "ssh_public_keys" {
   type        = list(string)
   default     = []
 }
+
+variable "enable_technitium" {
+  description = "Enable provisioning of the Technitium DNS server VM"
+  type        = bool
+  default     = true
+}

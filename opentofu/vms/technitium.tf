@@ -1,5 +1,6 @@
 module "technitium" {
   source = "../modules/vm"
+  count  = var.enable_technitium ? 1 : 0
 
   name         = "core-app-technitium"
   description  = "Technitium DNS server and internal name resolution"
@@ -36,13 +37,14 @@ module "technitium" {
 }
 
 resource "proxmox_backup_job" "technitium_backup" {
+  count    = var.enable_technitium ? 1 : 0
   id       = "backup-core-app-technitium"
   node     = var.node_name
   schedule = "daily"
   storage  = "local"
   mode     = "snapshot"
   compress = "zstd"
-  vmid     = [tostring(module.technitium.vm_id)]
+  vmid     = [tostring(module.technitium[0].vm_id)]
 
   prune_backups = {
     "keep-last" = "3"

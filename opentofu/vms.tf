@@ -10,8 +10,9 @@ locals {
 module "vms" {
   source = "./vms"
 
-  node_name = var.proxmox_node
-  image_id  = proxmox_virtual_environment_download_file.debian_cloud_image.id
+  node_name         = var.proxmox_node
+  image_id          = proxmox_virtual_environment_download_file.debian_cloud_image.id
+  enable_technitium = var.enable_technitium
 
   pools = {
     core_coord = proxmox_virtual_environment_pool.core_coord.pool_id

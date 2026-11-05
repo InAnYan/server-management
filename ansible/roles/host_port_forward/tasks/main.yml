@@ -45,7 +45,9 @@
   loop: "{{ host_port_forwards | subelements('host_ports') }}"
   loop_control:
     loop_var: item
-  when: (item.0.protocol | default('tcp')) == 'tcp'
+  when:
+    - (item.0.protocol | default('tcp')) == 'tcp'
+    - item.0.enabled | default(true) | bool
   vars:
     rule: "{{ item.0 }}"
     forward_port: "{{ item.1 }}"
@@ -62,7 +64,9 @@
   loop: "{{ host_port_forwards | subelements('host_ports') }}"
   loop_control:
     loop_var: item
-  when: (item.0.protocol | default('tcp')) == 'tcp'
+  when:
+    - (item.0.protocol | default('tcp')) == 'tcp'
+    - item.0.enabled | default(true) | bool
   vars:
     rule: "{{ item.0 }}"
     forward_port: "{{ item.1 }}"
@@ -79,10 +83,39 @@
   loop: "{{ host_port_forwards | subelements('host_ports') }}"
   loop_control:
     loop_var: item
-  when: (item.0.protocol | default('tcp')) == 'udp'
+  when:
+    - (item.0.protocol | default('tcp')) == 'udp'
+    - item.0.enabled | default(true) | bool
   vars:
     rule: "{{ item.0 }}"
     forward_port: "{{ item.1 }}"
+  tags:
+    - host_port_forward
+
+- name: Stop and disable disabled port forward services
+  ansible.builtin.systemd:
+    name: "port-forward-{{ item.0.name }}-{{ item.1 }}.{{ 'socket' if (item.0.protocol | default('tcp')) == 'tcp' else 'service' }}"
+    enabled: false
+    state: stopped
+  loop: "{{ host_port_forwards | subelements('host_ports') }}"
+  loop_control:
+    loop_var: item
+  when: not (item.0.enabled | default(true) | bool)
+  failed_when: false
+  tags:
+    - host_port_forward
+
+- name: Remove disabled port forward unit files
+  ansible.builtin.file:
+    path: "/etc/systemd/system/port-forward-{{ item.0.name }}-{{ item.1 }}.{{ ext }}"
+    state: absent
+  loop: "{{ (host_port_forwards | subelements('host_ports')) | product(['socket', 'service']) | list }}"
+  loop_control:
+    loop_var: forward_item
+  vars:
+    item: "{{ forward_item.0 }}"
+    ext: "{{ forward_item.1 }}"
+  when: not (item.0.enabled | default(true) | bool)
   tags:
     - host_port_forward
 
@@ -100,7 +133,9 @@
   loop: "{{ host_port_forwards | subelements('host_ports') }}"
   loop_control:
     loop_var: item
-  when: (item.0.protocol | default('tcp')) == 'tcp'
+  when:
+    - (item.0.protocol | default('tcp')) == 'tcp'
+    - item.0.enabled | default(true) | bool
   tags:
     - host_port_forward
 
@@ -112,6 +147,8 @@
   loop: "{{ host_port_forwards | subelements('host_ports') }}"
   loop_control:
     loop_var: item
-  when: (item.0.protocol | default('tcp')) == 'udp'
+  when:
+    - (item.0.protocol | default('tcp')) == 'udp'
+    - item.0.enabled | default(true) | bool
   tags:
     - host_port_forward

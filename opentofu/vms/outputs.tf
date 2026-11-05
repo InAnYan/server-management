@@ -23,11 +23,11 @@ output "gitea_ip" {
 }
 
 output "technitium_vm_id" {
-  value = module.technitium.vm_id
+  value = var.enable_technitium ? module.technitium[0].vm_id : null
 }
 
 output "technitium_ip" {
-  value = module.technitium.ip
+  value = var.enable_technitium ? module.technitium[0].ip : null
 }
 
 output "postgres_vm_id" {

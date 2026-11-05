@@ -2,3 +2,6 @@ proxmox_endpoint  = "https://proxmox.example.com:8006/"
 proxmox_api_token = "terraform@pve!terraform_token=xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
 proxmox_insecure  = true
 proxmox_node      = "pve-01"
+
+# Feature flags for optional service VMs
+enable_technitium = true

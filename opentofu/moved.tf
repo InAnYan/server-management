@@ -32,12 +32,17 @@ moved {
 
 moved {
   from = proxmox_virtual_environment_vm.technitium
-  to   = module.vms.module.technitium.proxmox_virtual_environment_vm.this
+  to   = module.vms.module.technitium[0].proxmox_virtual_environment_vm.this
 }
 
 moved {
   from = module.technitium.proxmox_virtual_environment_vm.this
-  to   = module.vms.module.technitium.proxmox_virtual_environment_vm.this
+  to   = module.vms.module.technitium[0].proxmox_virtual_environment_vm.this
+}
+
+moved {
+  from = module.vms.module.technitium
+  to   = module.vms.module.technitium[0]
 }
 
 moved {
@@ -104,12 +109,12 @@ moved {
 
 moved {
   from = proxmox_virtual_environment_firewall_rules.technitium_rules
-  to   = module.vms.module.technitium.proxmox_virtual_environment_firewall_rules.this[0]
+  to   = module.vms.module.technitium[0].proxmox_virtual_environment_firewall_rules.this[0]
 }
 
 moved {
   from = module.technitium.proxmox_virtual_environment_firewall_rules.this[0]
-  to   = module.vms.module.technitium.proxmox_virtual_environment_firewall_rules.this[0]
+  to   = module.vms.module.technitium[0].proxmox_virtual_environment_firewall_rules.this[0]
 }
 
 moved {
@@ -161,5 +166,10 @@ moved {
 
 moved {
   from = proxmox_backup_job.technitium_backup
-  to   = module.vms.proxmox_backup_job.technitium_backup
+  to   = module.vms.proxmox_backup_job.technitium_backup[0]
+}
+
+moved {
+  from = module.vms.proxmox_backup_job.technitium_backup
+  to   = module.vms.proxmox_backup_job.technitium_backup[0]
 }

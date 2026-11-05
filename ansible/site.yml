@@ -3,6 +3,14 @@
 # Main configuration playbook
 # [impl->req~configuration-ansible~1]
 
+- name: Determine active infrastructure nodes based on feature flags
+  hosts: all
+  gather_facts: false
+  tasks:
+    - name: Classify node availability
+      ansible.builtin.group_by:
+        key: "{{ 'active_nodes' if (inventory_hostname != 'core-app-technitium' or (enable_technitium | default(true) | bool)) else 'disabled_nodes' }}"
+
 - name: Bootstrap host environment, SSH keys, and secrets
   hosts: proxmox
   become: true
@@ -13,7 +21,7 @@
         - secrets
 
 - name: Apply baseline configuration to Proxmox host and VMs
-  hosts: all
+  hosts: all:&active_nodes
   become: true
   roles:
     - role: common
@@ -21,7 +29,7 @@
         - common
 
 - name: Configure Docker container runtime
-  hosts: docker_hosts:!proxmox
+  hosts: docker_hosts:!proxmox:&active_nodes
   become: true
   roles:
     - role: docker
@@ -29,7 +37,7 @@
         - docker
 
 - name: Deploy PostgreSQL database server
-  hosts: core_databases:dev_databases:prod_databases
+  hosts: core_databases:dev_databases:prod_databases:&active_nodes
   become: true
   roles:
     - role: postgres
@@ -38,7 +46,7 @@
         - database
 
 - name: Deploy Technitium DNS server
-  hosts: core-app-technitium
+  hosts: core-app-technitium:&active_nodes
   become: true
   roles:
     - role: technitium
@@ -46,7 +54,7 @@
         - technitium
 
 - name: Deploy Uptime Kuma monitoring service
-  hosts: core-coord-uptimekuma
+  hosts: core-coord-uptimekuma:&active_nodes
   become: true
   roles:
     - role: uptimekuma
@@ -55,7 +63,7 @@
         - monitoring
 
 - name: Deploy Gitea Git service
-  hosts: core-coord-gitea
+  hosts: core-coord-gitea:&active_nodes
   become: true
   roles:
     - role: gitea
@@ -64,7 +72,7 @@
         - git
 
 - name: Deploy Caddy reverse proxy
-  hosts: core-coord-caddy
+  hosts: core-coord-caddy:&active_nodes
   become: true
   roles:
     - role: caddy

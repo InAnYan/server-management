@@ -55,7 +55,18 @@
     group: root
     mode: "0644"
   loop: "{{ (caddy_sites | default([])) + ([caddy_site] if caddy_site is defined else []) }}"
+  when: item.enabled | default(true) | bool
   register: caddy_sites_result
+  tags:
+    - caddy
+
+- name: Remove disabled Caddy site definitions
+  ansible.builtin.file:
+    path: "{{ caddy_dir }}/conf.d/{{ item.name }}.Caddyfile"
+    state: absent
+  loop: "{{ (caddy_sites | default([])) + ([caddy_site] if caddy_site is defined else []) }}"
+  when: not (item.enabled | default(true) | bool)
+  register: caddy_disabled_sites_result
   tags:
     - caddy
 
@@ -64,7 +75,7 @@
     cmd: docker compose exec -w /etc/caddy caddy caddy reload --config /etc/caddy/Caddyfile
     chdir: "{{ caddy_dir }}"
   when:
-    - (caddy_config_result.changed or (caddy_sites_result.changed | default(false)))
+    - (caddy_config_result.changed or (caddy_sites_result.changed | default(false)) or (caddy_disabled_sites_result.changed | default(false)))
     - not caddy_compose_result.changed
   changed_when: true
   tags:

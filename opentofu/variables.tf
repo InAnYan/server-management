@@ -20,3 +20,9 @@ variable "proxmox_node" {
   type        = string
   default     = "lserver"
 }
+
+variable "enable_technitium" {
+  description = "Enable provisioning of the Technitium DNS server VM and backup job"
+  type        = bool
+  default     = true
+}

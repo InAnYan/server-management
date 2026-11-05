@@ -5,11 +5,14 @@ caddy_sites:
     domain: "{{ technitium_domain }}"
     host: core-app-technitium
     port: 80
+    enabled: "{{ enable_technitium | default(true) }}"
   - name: uptimekuma
     domain: "{{ uptimekuma_domain }}"
     host: core-coord-uptimekuma
     port: 3001
+    enabled: true
   - name: gitea
     domain: "{{ gitea_domain }}"
     host: core-coord-gitea
     port: 3000
+    enabled: true

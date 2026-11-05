@@ -6,17 +6,7 @@ moved {
 }
 
 moved {
-  from = module.caddy.proxmox_virtual_environment_vm.this
-  to   = module.vms.module.caddy.proxmox_virtual_environment_vm.this
-}
-
-moved {
   from = proxmox_virtual_environment_vm.uptimekuma
-  to   = module.vms.module.uptimekuma.proxmox_virtual_environment_vm.this
-}
-
-moved {
-  from = module.uptimekuma.proxmox_virtual_environment_vm.this
   to   = module.vms.module.uptimekuma.proxmox_virtual_environment_vm.this
 }
 
@@ -26,32 +16,12 @@ moved {
 }
 
 moved {
-  from = module.gitea.proxmox_virtual_environment_vm.this
-  to   = module.vms.module.gitea.proxmox_virtual_environment_vm.this
-}
-
-moved {
   from = proxmox_virtual_environment_vm.technitium
   to   = module.vms.module.technitium[0].proxmox_virtual_environment_vm.this
 }
 
 moved {
-  from = module.technitium.proxmox_virtual_environment_vm.this
-  to   = module.vms.module.technitium[0].proxmox_virtual_environment_vm.this
-}
-
-moved {
-  from = module.vms.module.technitium
-  to   = module.vms.module.technitium[0]
-}
-
-moved {
   from = proxmox_virtual_environment_vm.postgres
-  to   = module.vms.module.postgres.proxmox_virtual_environment_vm.this
-}
-
-moved {
-  from = module.postgres.proxmox_virtual_environment_vm.this
   to   = module.vms.module.postgres.proxmox_virtual_environment_vm.this
 }
 
@@ -61,17 +31,7 @@ moved {
 }
 
 moved {
-  from = module.dev_postgres.proxmox_virtual_environment_vm.this
-  to   = module.vms.module.dev_postgres.proxmox_virtual_environment_vm.this
-}
-
-moved {
   from = proxmox_virtual_environment_vm.prod_postgres
-  to   = module.vms.module.prod_postgres.proxmox_virtual_environment_vm.this
-}
-
-moved {
-  from = module.prod_postgres.proxmox_virtual_environment_vm.this
   to   = module.vms.module.prod_postgres.proxmox_virtual_environment_vm.this
 }
 
@@ -83,17 +43,7 @@ moved {
 }
 
 moved {
-  from = module.caddy.proxmox_virtual_environment_firewall_rules.this[0]
-  to   = module.vms.module.caddy.proxmox_virtual_environment_firewall_rules.this[0]
-}
-
-moved {
   from = proxmox_virtual_environment_firewall_rules.uptimekuma_rules
-  to   = module.vms.module.uptimekuma.proxmox_virtual_environment_firewall_rules.this[0]
-}
-
-moved {
-  from = module.uptimekuma.proxmox_virtual_environment_firewall_rules.this[0]
   to   = module.vms.module.uptimekuma.proxmox_virtual_environment_firewall_rules.this[0]
 }
 
@@ -103,17 +53,7 @@ moved {
 }
 
 moved {
-  from = module.gitea.proxmox_virtual_environment_firewall_rules.this[0]
-  to   = module.vms.module.gitea.proxmox_virtual_environment_firewall_rules.this[0]
-}
-
-moved {
   from = proxmox_virtual_environment_firewall_rules.technitium_rules
-  to   = module.vms.module.technitium[0].proxmox_virtual_environment_firewall_rules.this[0]
-}
-
-moved {
-  from = module.technitium.proxmox_virtual_environment_firewall_rules.this[0]
   to   = module.vms.module.technitium[0].proxmox_virtual_environment_firewall_rules.this[0]
 }
 
@@ -123,27 +63,12 @@ moved {
 }
 
 moved {
-  from = module.postgres.proxmox_virtual_environment_firewall_rules.this[0]
-  to   = module.vms.module.postgres.proxmox_virtual_environment_firewall_rules.this[0]
-}
-
-moved {
   from = proxmox_virtual_environment_firewall_rules.dev_postgres_rules
   to   = module.vms.module.dev_postgres.proxmox_virtual_environment_firewall_rules.this[0]
 }
 
 moved {
-  from = module.dev_postgres.proxmox_virtual_environment_firewall_rules.this[0]
-  to   = module.vms.module.dev_postgres.proxmox_virtual_environment_firewall_rules.this[0]
-}
-
-moved {
   from = proxmox_virtual_environment_firewall_rules.prod_postgres_rules
-  to   = module.vms.module.prod_postgres.proxmox_virtual_environment_firewall_rules.this[0]
-}
-
-moved {
-  from = module.prod_postgres.proxmox_virtual_environment_firewall_rules.this[0]
   to   = module.vms.module.prod_postgres.proxmox_virtual_environment_firewall_rules.this[0]
 }
 
@@ -166,10 +91,5 @@ moved {
 
 moved {
   from = proxmox_backup_job.technitium_backup
-  to   = module.vms.proxmox_backup_job.technitium_backup[0]
-}
-
-moved {
-  from = module.vms.proxmox_backup_job.technitium_backup
   to   = module.vms.proxmox_backup_job.technitium_backup[0]
 }

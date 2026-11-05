@@ -58,3 +58,6 @@ ansible/**/secrets.yml
 *secrets.yml
 *vault.yml
 !*.example
+
+# Local operational scripts
+scripts/

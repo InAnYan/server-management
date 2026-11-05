@@ -101,13 +101,280 @@ resource "proxmox_virtual_environment_firewall_rules" "node_rules" {
 
 # [impl->req~firewall-enabled~1]
 resource "proxmox_virtual_environment_cluster_firewall" "cluster_firewall" {
-  enabled       = true
-  input_policy  = "DROP"
-  output_policy = "ACCEPT"
+  enabled        = true
+  input_policy   = "DROP"
+  output_policy  = "ACCEPT"
+  forward_policy = "DROP"
 
   depends_on = [
     proxmox_virtual_environment_firewall_rules.node_rules
   ]
+}
+
+resource "proxmox_node_firewall" "node_firewall" {
+  node_name = var.proxmox_node
+  enabled   = true
+  nftables  = true
+}
+
+# [impl->req~cross-environment-isolation~1]
+# [impl->req~databases-isolated-from-internet~1]
+resource "proxmox_virtual_environment_firewall_rules" "cluster_rules" {
+  # --- Explicit ALLOW rules ---
+
+  # 1. Core coordinator to all subnets
+  rule {
+    type    = "forward"
+    action  = "ACCEPT"
+    source  = "+sdn/vcoord-all"
+    dest    = "+sdn/vcore-all"
+    comment = "Allow coordinator to core app"
+    enabled = true
+  }
+
+  rule {
+    type    = "forward"
+    action  = "ACCEPT"
+    source  = "+sdn/vcoord-all"
+    dest    = "+sdn/vcdb-all"
+    comment = "Allow coordinator to core data"
+    enabled = true
+  }
+
+  rule {
+    type    = "forward"
+    action  = "ACCEPT"
+    source  = "+sdn/vcoord-all"
+    dest    = "+sdn/vdev-all"
+    comment = "Allow coordinator to dev app"
+    enabled = true
+  }
+
+  rule {
+    type    = "forward"
+    action  = "ACCEPT"
+    source  = "+sdn/vcoord-all"
+    dest    = "+sdn/vddb-all"
+    comment = "Allow coordinator to dev data"
+    enabled = true
+  }
+
+  rule {
+    type    = "forward"
+    action  = "ACCEPT"
+    source  = "+sdn/vcoord-all"
+    dest    = "+sdn/vprod-all"
+    comment = "Allow coordinator to prod app"
+    enabled = true
+  }
+
+  rule {
+    type    = "forward"
+    action  = "ACCEPT"
+    source  = "+sdn/vcoord-all"
+    dest    = "+sdn/vpdb-all"
+    comment = "Allow coordinator to prod data"
+    enabled = true
+  }
+
+  rule {
+    type    = "forward"
+    action  = "ACCEPT"
+    source  = "+sdn/vcoord-all"
+    comment = "Allow coordinator internet egress"
+    enabled = true
+  }
+
+  # 2. Core applications
+  rule {
+    type    = "forward"
+    action  = "ACCEPT"
+    source  = "+sdn/vcore-all"
+    dest    = "+sdn/vcdb-all"
+    comment = "Allow core app to core data"
+    enabled = true
+  }
+
+  rule {
+    type    = "forward"
+    action  = "ACCEPT"
+    source  = "+sdn/vcore-all"
+    comment = "Allow core app internet egress (e.g. DNS resolution)"
+    enabled = true
+  }
+
+  # 3. Development environment
+  rule {
+    type    = "forward"
+    action  = "ACCEPT"
+    source  = "+sdn/vdev-all"
+    dest    = "+sdn/vddb-all"
+    comment = "Allow dev app to dev data"
+    enabled = true
+  }
+
+  rule {
+    type    = "forward"
+    action  = "ACCEPT"
+    source  = "+sdn/vdev-all"
+    comment = "Allow dev app internet egress"
+    enabled = true
+  }
+
+  # 4. Production environment
+  rule {
+    type    = "forward"
+    action  = "ACCEPT"
+    source  = "+sdn/vprod-all"
+    dest    = "+sdn/vpdb-all"
+    comment = "Allow prod app to prod data"
+    enabled = true
+  }
+
+  rule {
+    type    = "forward"
+    action  = "ACCEPT"
+    source  = "+sdn/vprod-all"
+    comment = "Allow prod app internet egress"
+    enabled = true
+  }
+
+  # --- Explicit DROP rules ---
+
+  # Dev isolation
+  rule {
+    type    = "forward"
+    action  = "DROP"
+    source  = "+sdn/vdev-all"
+    dest    = "+sdn/vprod-all"
+    comment = "Drop dev app to prod app"
+    enabled = true
+  }
+
+  rule {
+    type    = "forward"
+    action  = "DROP"
+    source  = "+sdn/vdev-all"
+    dest    = "+sdn/vpdb-all"
+    comment = "Drop dev app to prod data"
+    enabled = true
+  }
+
+  rule {
+    type    = "forward"
+    action  = "DROP"
+    source  = "+sdn/vdev-all"
+    dest    = "+sdn/vcore-all"
+    comment = "Drop dev app to core app"
+    enabled = true
+  }
+
+  rule {
+    type    = "forward"
+    action  = "DROP"
+    source  = "+sdn/vdev-all"
+    dest    = "+sdn/vcdb-all"
+    comment = "Drop dev app to core data"
+    enabled = true
+  }
+
+  # Prod isolation
+  rule {
+    type    = "forward"
+    action  = "DROP"
+    source  = "+sdn/vprod-all"
+    dest    = "+sdn/vdev-all"
+    comment = "Drop prod app to dev app"
+    enabled = true
+  }
+
+  rule {
+    type    = "forward"
+    action  = "DROP"
+    source  = "+sdn/vprod-all"
+    dest    = "+sdn/vddb-all"
+    comment = "Drop prod app to dev data"
+    enabled = true
+  }
+
+  rule {
+    type    = "forward"
+    action  = "DROP"
+    source  = "+sdn/vprod-all"
+    dest    = "+sdn/vcore-all"
+    comment = "Drop prod app to core app"
+    enabled = true
+  }
+
+  rule {
+    type    = "forward"
+    action  = "DROP"
+    source  = "+sdn/vprod-all"
+    dest    = "+sdn/vcdb-all"
+    comment = "Drop prod app to core data"
+    enabled = true
+  }
+
+  # Database subnets isolation: no cross-environment data access, no WAN egress
+  rule {
+    type    = "forward"
+    action  = "DROP"
+    source  = "+sdn/vddb-all"
+    dest    = "+sdn/vpdb-all"
+    comment = "Drop dev data to prod data"
+    enabled = true
+  }
+
+  rule {
+    type    = "forward"
+    action  = "DROP"
+    source  = "+sdn/vddb-all"
+    dest    = "+sdn/vprod-all"
+    comment = "Drop dev data to prod app"
+    enabled = true
+  }
+
+  rule {
+    type    = "forward"
+    action  = "DROP"
+    source  = "+sdn/vddb-all"
+    comment = "Drop dev data internet egress"
+    enabled = true
+  }
+
+  rule {
+    type    = "forward"
+    action  = "DROP"
+    source  = "+sdn/vpdb-all"
+    dest    = "+sdn/vddb-all"
+    comment = "Drop prod data to dev data"
+    enabled = true
+  }
+
+  rule {
+    type    = "forward"
+    action  = "DROP"
+    source  = "+sdn/vpdb-all"
+    dest    = "+sdn/vdev-all"
+    comment = "Drop prod data to dev app"
+    enabled = true
+  }
+
+  rule {
+    type    = "forward"
+    action  = "DROP"
+    source  = "+sdn/vpdb-all"
+    comment = "Drop prod data internet egress"
+    enabled = true
+  }
+
+  rule {
+    type    = "forward"
+    action  = "DROP"
+    source  = "+sdn/vcdb-all"
+    comment = "Drop core data internet egress"
+    enabled = true
+  }
 }
 
 # --- Resource Pools ---

@@ -114,9 +114,12 @@ flowchart TD
 1. **Proxmox Software-Defined Networking (SDN)**:
    - Each subnet is defined as an independent **VNET** within a Proxmox SDN Zone.
    - VNETs isolate Layer 2 broadcast domains across all VM and container workloads.
-2. **Firewall Rules**:
-   - Traffic crossing VNET boundaries is filtered through the Proxmox VE firewall.
-   - Default inter-subnet traffic is blocked, with explicit accept rules matching the communication matrix above.
+   - Proxmox SDN automatically registers IP sets for each VNet (`+sdn/<vnet>-all`), making subnets addressable in cluster firewall rules.
+2. **Datacenter / Cluster Firewall Rules**:
+   - Traffic crossing VNET boundaries is filtered through native Proxmox VE datacenter firewall forward rules using the modern nftables engine.
+   - Explicit forward ALLOW rules permit authorized communications (Core coordinator to all tiers, intra-environment app-to-data, and application WAN egress).
+   - Explicit forward DROP rules strictly isolate environments (Dev &harr; Prod, cross-tier access) and block database subnets from WAN egress.
+   - Default datacenter forward policy is set to `DROP` (`forward_policy: DROP`).
 3. **Internet Access via SNAT**:
    - Outbound internet access is controlled by toggling the **SNAT** (Source NAT) option on each SDN subnet definition.
    - SNAT is enabled for application subnets and disabled for database subnets.

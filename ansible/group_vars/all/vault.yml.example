@@ -3,6 +3,10 @@
 # Or edit an encrypted file with: ansible-vault edit ansible/group_vars/all/vault.yml
 
 vault_admin_password: "supersecretpassword"
+vault_redis_core_password: "supersecretrediscorepassword"
+vault_redis_dev_password: "supersecretredisdevpassword"
+vault_redis_prod_password: "supersecretredisprodpassword"
+vault_minio_admin_password: "supersecretminioadminpassword"
 vault_api_keys:
   service_a: "token-here"
 

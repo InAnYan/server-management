@@ -1,0 +1,18 @@
+---
+# Default variables for Valkey / Redis in-memory cache role
+redis_dir: /opt/redis
+redis_image: "valkey/valkey:8.0-alpine"
+redis_port: 6379
+
+# Password resolution prioritizing host-specific persistent secret file, falling back to group vars
+redis_password: >-
+  {{
+    lookup('file', '/srv/secrets/redis_' ~ (inventory_hostname.split('-')[0]) ~ '_password', errors='ignore')
+    | default(lookup('file', '/srv/admin/secrets/redis_' ~ (inventory_hostname.split('-')[0]) ~ '_password', errors='ignore'), true)
+    | default(
+        (redis_core_password if 'core' in inventory_hostname else (redis_dev_password if 'dev' in inventory_hostname else redis_prod_password))
+        | default('ChangeMeRedisSecretPassword123!'),
+        true
+      )
+    | trim
+  }}

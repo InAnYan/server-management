@@ -6,7 +6,20 @@
   tasks:
     - name: Classify node availability
       ansible.builtin.group_by:
-        key: "{{ 'active_nodes' if (inventory_hostname != 'core-app-technitium' or (enable_technitium | default(true) | bool)) else 'disabled_nodes' }}"
+        key: >-
+          {{
+            'active_nodes'
+            if (
+              (inventory_hostname != 'core-app-technitium' or (enable_technitium | default(true) | bool)) and
+              (inventory_hostname != 'core-data-redis' or (enable_redis_core | default(false) | bool)) and
+              (inventory_hostname != 'dev-data-redis' or (enable_redis_dev | default(false) | bool)) and
+              (inventory_hostname != 'prod-data-redis' or (enable_redis_prod | default(false) | bool)) and
+              (inventory_hostname != 'core-data-minio' or (enable_minio_core | default(false) | bool)) and
+              (inventory_hostname != 'dev-data-minio' or (enable_minio_dev | default(false) | bool)) and
+              (inventory_hostname != 'prod-data-minio' or (enable_minio_prod | default(false) | bool))
+            )
+            else 'disabled_nodes'
+          }}
 
 - name: Create new administrator account in Technitium DNS
   hosts: core-app-technitium:&active_nodes

@@ -78,11 +78,11 @@ Each unique combination of Environment and Type is mapped to a dedicated Softwar
 | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
 | **`core`** | **`coord`** | `vcoord` | `vnet-core-coord` | `10.10.1.0/24` | `core-coord` | Caddy reverse proxy, Uptime Kuma monitoring, Gitea Git platform |
 | **`core`** | **`app`** | `vcore` | `vnet-core-app` | `10.11.0.0/16` | `core-app` | Technitium DNS authoritative server |
-| **`core`** | **`data`** | `vcdb` | `vnet-core-data` | `10.10.2.0/24` | `core-data` | Core PostgreSQL cluster (backs Gitea, internal tools) |
+| **`core`** | **`data`** | `vcdb` | `vnet-core-data` | `10.10.2.0/24` | `core-data` | Core PostgreSQL cluster, optional Valkey/Redis cache, optional MinIO S3 object storage |
 | **`dev`** | **`app`** | `vdev` | `vnet-dev-app` | `10.21.0.0/16` | `dev-app` | Development APIs, web apps, staging containers |
-| **`dev`** | **`data`** | `vddb` | `vnet-dev-data` | `10.20.2.0/24` | `dev-data` | Development PostgreSQL database instance |
+| **`dev`** | **`data`** | `vddb` | `vnet-dev-data` | `10.20.2.0/24` | `dev-data` | Development PostgreSQL database, optional Valkey/Redis cache, optional MinIO S3 object storage |
 | **`prod`** | **`app`** | `vprod` | `vnet-prod-app` | `10.32.0.0/16` | `prod-app` | Production APIs, frontends, client workloads |
-| **`prod`** | **`data`** | `vpdb` | `vnet-prod-data` | `10.30.2.0/24` | `prod-data` | Production PostgreSQL database instance |
+| **`prod`** | **`data`** | `vpdb` | `vnet-prod-data` | `10.30.2.0/24` | `prod-data` | Production PostgreSQL database, optional Valkey/Redis cache, optional MinIO S3 object storage |
 
 ### Isolation & Access Rules
 

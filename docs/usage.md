@@ -57,6 +57,8 @@ Use `--tags` to execute specific functional roles without running the full playb
 | `gitea` | `gitea` | Configures Gitea Git platform and administrator account |
 | `caddy` | `caddy` | Templates modular site definitions in `/opt/caddy/conf.d/` and reloads Caddy |
 | `host_port_forward` | `host_port_forward` | Sets up systemd socket activation on Proxmox host (DNS 53, Git SSH 2222) |
+| `redis` | `redis` | Deploys Valkey / Redis in-memory cache and key-value store with password protection |
+| `minio` | `minio` | Deploys MinIO S3 object storage server and local `mc` client wrapper |
 
 Examples:
 
@@ -135,7 +137,27 @@ ansible-playbook -i inventory/hosts.ini playbooks/ops/create_gitea_user.yml \
   -e "is_admin=true"
 ```
 
-### 4. Ingress-Isolated Password Rotation (`rotate_admin_passwords.yml`)
+### 4. Provision Bucket-Restricted MinIO S3 Users (`create_minio_user.yml`)
+
+<!-- [oman->req~app-accounts-ansible~1] -->
+Create application or service accounts on MinIO restricted strictly to a single S3 bucket:
+
+```bash
+# Create bucket and provision user restricted strictly to 'backups' bucket on core MinIO
+ansible-playbook -i inventory/hosts.ini playbooks/ops/create_minio_user.yml \
+  -e "username=backupagent" \
+  -e "password=SecretBackupPassword123!" \
+  -e "bucket=backups"
+
+# Provision user restricted to 'app-assets' bucket on dev MinIO
+ansible-playbook -i inventory/hosts.ini playbooks/ops/create_minio_user.yml \
+  -e "target_host=dev-data-minio" \
+  -e "username=appdev" \
+  -e "password=AppSecretPassword123!" \
+  -e "bucket=app-assets"
+```
+
+### 5. Ingress-Isolated Password Rotation (`rotate_admin_passwords.yml`)
 
 Rotate administrative passwords with automated ingress isolation (Caddy temporarily serves HTTP 503 while database, Technitium, and Uptime Kuma credentials rotate):
 
@@ -143,7 +165,7 @@ Rotate administrative passwords with automated ingress isolation (Caddy temporar
 ansible-playbook -i inventory/hosts.ini playbooks/ops/rotate_admin_passwords.yml
 ```
 
-### 5. Docker Compose Service Control (`compose.yml`)
+### 6. Docker Compose Service Control (`compose.yml`)
 
 Restart, stop, or pull containerized services on target nodes:
 
@@ -161,7 +183,7 @@ ansible-playbook -i inventory/hosts.ini playbooks/ops/compose.yml \
   -e "action=pull"
 ```
 
-### 6. Inspect System & Service Logs (`system-logs.yml`)
+### 7. Inspect System & Service Logs (`system-logs.yml`)
 
 Fetch recent systemd journal logs from target nodes:
 
@@ -169,7 +191,7 @@ Fetch recent systemd journal logs from target nodes:
 ansible-playbook -i inventory/hosts.ini playbooks/ops/system-logs.yml -l core-coord-caddy
 ```
 
-### 7. Safe Node Reboot (`reboot.yml`)
+### 8. Safe Node Reboot (`reboot.yml`)
 
 Gracefully reboot a virtual machine:
 
@@ -189,31 +211,54 @@ ansible-playbook -i inventory/hosts.ini site.yml --tags caddy \
 
 ## Optional Workloads & Feature Flags
 
-Workloads such as the Technitium DNS server can be toggled on or off via feature flags in OpenTofu and Ansible. When disabled, the VM is not provisioned (or deleted if already running), port forwarding rules on the host are deactivated, and ingress routes on Caddy are automatically purged.
+Workloads such as the Technitium DNS server, Valkey / Redis in-memory caches, and MinIO S3 object storage can be toggled on or off independently across environments via feature flags in OpenTofu and Ansible. When disabled, VMs are not provisioned (or deleted if already running), and Ansible excludes them from execution without SSH connection errors.
 
-### Disabling or Enabling Technitium DNS
+### Toggling In-Memory Cache (Valkey / Redis)
 
-1. **OpenTofu (Infrastructure Layer)**:
-   In `/srv/admin/opentofu/terraform.tfvars`:
+Valkey / Redis can be toggled independently for `core`, `dev`, and `prod`:
+
+1. **OpenTofu (`terraform.tfvars`)**:
 
    ```hcl
-   enable_technitium = false
+   enable_redis_core = true
+   enable_redis_dev  = true
+   enable_redis_prod = false
    ```
 
-   Run `tofu plan` and `tofu apply`. If turning off, OpenTofu destroys the `core-app-technitium` VM and its backup job. If turning on, OpenTofu provisions the VM and backup job.
-
-2. **Ansible (Configuration Layer)**:
-   In `/srv/admin/ansible/group_vars/all/main.yml`:
+2. **Ansible (`ansible/group_vars/all/main.yml`)**:
 
    ```yaml
-   enable_technitium: false
+   enable_redis_core: true
+   enable_redis_dev: true
+   enable_redis_prod: false
    ```
 
-   Run `ansible-playbook -i inventory/hosts.ini site.yml`. Ansible automatically:
-   - Excludes `core-app-technitium` from baseline and Docker plays without SSH connection errors.
-   - Skips Technitium configuration tasks (and administrative account playbooks).
-   - Disables and cleans up host port forwarding for port 53 (TCP/UDP).
-   - Removes `/opt/caddy/conf.d/technitium.Caddyfile` from Caddy and reloads the reverse proxy.
+### Toggling S3 Object Storage (MinIO)
+
+MinIO S3 storage can be enabled on `core`, `dev`, or `prod`:
+
+1. **OpenTofu (`terraform.tfvars`)**:
+
+   ```hcl
+   enable_minio_core = true
+   enable_minio_dev  = false
+   enable_minio_prod = false
+   ```
+
+2. **Ansible (`ansible/group_vars/all/main.yml`)**:
+
+   ```yaml
+   enable_minio_core: true
+   enable_minio_dev: false
+   enable_minio_prod: false
+   ```
+
+When `enable_minio_core` is enabled, Caddy automatically provisions ingress routes for `s3.<domain>` (API) and `s3-console.<domain>` (Web Console).
+
+### Toggling Technitium DNS
+
+1. **OpenTofu (`terraform.tfvars`)**: `enable_technitium = false` (or `true`).
+2. **Ansible (`ansible/group_vars/all/main.yml`)**: `enable_technitium: false` (or `true`). Automatically tears down host port forwarding for port 53 and purges reverse proxy routes.
 
 ## Relevant Documentation
 

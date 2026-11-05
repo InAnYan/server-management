@@ -91,7 +91,7 @@ All machine-specific identifiers (such as target server hostnames, node names, i
 │   ├── terraform.tfvars.example
 │   ├── modules/                       # Reusable OpenTofu modules
 │   │   └── vm/                        # Unified VM definition and VM firewall rules module
-│   └── vms/                           # Workload VM definitions (caddy, technitium, gitea, postgres)
+│   └── vms/                           # Workload VM definitions (caddy, technitium, gitea, postgres, redis, minio)
 │       ├── main.tf                    # Provider configuration
 │       ├── variables.tf               # Workload variables
 │       ├── outputs.tf                 # Workload outputs

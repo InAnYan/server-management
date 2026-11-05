@@ -1,0 +1,121 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ansible/ansible-lint/main/src/ansiblelint/schemas/ansible.json
+---
+# [impl->req~app-accounts-ansible~1]
+- name: Determine active infrastructure nodes based on feature flags
+  hosts: all
+  gather_facts: false
+  tasks:
+    - name: Classify node availability
+      ansible.builtin.group_by:
+        key: >-
+          {{
+            'active_nodes'
+            if (
+              (inventory_hostname != 'core-app-technitium' or (enable_technitium | default(true) | bool)) and
+              (inventory_hostname != 'core-data-redis' or (enable_redis_core | default(false) | bool)) and
+              (inventory_hostname != 'dev-data-redis' or (enable_redis_dev | default(false) | bool)) and
+              (inventory_hostname != 'prod-data-redis' or (enable_redis_prod | default(false) | bool)) and
+              (inventory_hostname != 'core-data-minio' or (enable_minio_core | default(false) | bool)) and
+              (inventory_hostname != 'dev-data-minio' or (enable_minio_dev | default(false) | bool)) and
+              (inventory_hostname != 'prod-data-minio' or (enable_minio_prod | default(false) | bool))
+            )
+            else 'disabled_nodes'
+          }}
+
+- name: Provision bucket-restricted user account on MinIO S3
+  hosts: "{{ target_host | default('core-data-minio') }}:&active_nodes"
+  become: true
+  vars:
+    minio_target_user: "{{ username }}"
+    minio_target_password: "{{ password }}"
+    minio_target_bucket: "{{ bucket }}"
+  tasks:
+    - name: Validate mandatory user provisioning parameters
+      ansible.builtin.assert:
+        that:
+          - minio_target_user is defined
+          - minio_target_user | length > 0
+          - minio_target_password is defined
+          - minio_target_password | length >= 8
+          - minio_target_bucket is defined
+          - minio_target_bucket | length > 0
+        fail_msg: "Usage: -e 'username=<name> password=<secret_min_8_chars> bucket=<bucket_name>' [target_host=<host>]"
+
+    - name: Ensure target S3 bucket exists
+      ansible.builtin.command:
+        cmd: "/usr/local/bin/mc mb --ignore-existing local/{{ minio_target_bucket }}"
+      register: minio_mb_result
+      changed_when: "'Bucket created successfully' in minio_mb_result.stdout"
+
+    - name: Create or update MinIO user account
+      ansible.builtin.command:
+        cmd: "/usr/local/bin/mc admin user add local {{ minio_target_user }} {{ minio_target_password }}"
+      register: minio_user_result
+      changed_when: "'Added user' in minio_user_result.stdout or 'Updated user' in minio_user_result.stdout"
+
+    - name: Create temporary IAM policy file restricted strictly to bucket
+      ansible.builtin.copy:
+        dest: "/tmp/minio-policy-{{ minio_target_user }}-{{ minio_target_bucket }}.json"
+        owner: root
+        group: root
+        mode: "0600"
+        content: |
+          {
+            "Version": "2012-10-17",
+            "Statement": [
+              {
+                "Effect": "Allow",
+                "Action": [
+                  "s3:GetBucketLocation",
+                  "s3:ListBucket",
+                  "s3:ListBucketMultipartUploads"
+                ],
+                "Resource": [
+                  "arn:aws:s3:::{{ minio_target_bucket }}"
+                ]
+              },
+              {
+                "Effect": "Allow",
+                "Action": [
+                  "s3:AbortMultipartUpload",
+                  "s3:DeleteObject",
+                  "s3:GetObject",
+                  "s3:ListMultipartUploadParts",
+                  "s3:PutObject"
+                ],
+                "Resource": [
+                  "arn:aws:s3:::{{ minio_target_bucket }}/*"
+                ]
+              }
+            ]
+          }
+
+    - name: Register bucket IAM policy in MinIO
+      ansible.builtin.command:
+        cmd: >
+          /usr/local/bin/mc admin policy create local
+          {{ minio_target_user }}-{{ minio_target_bucket }}-policy
+          /tmp/minio-policy-{{ minio_target_user }}-{{ minio_target_bucket }}.json
+      register: minio_policy_result
+      changed_when: true
+      failed_when: false
+
+    - name: Attach bucket IAM policy to user account
+      ansible.builtin.command:
+        cmd: >
+          /usr/local/bin/mc admin policy attach local
+          {{ minio_target_user }}-{{ minio_target_bucket }}-policy
+          --user {{ minio_target_user }}
+      register: minio_attach_result
+      changed_when: true
+
+    - name: Clean up temporary policy file
+      ansible.builtin.file:
+        path: "/tmp/minio-policy-{{ minio_target_user }}-{{ minio_target_bucket }}.json"
+        state: absent
+
+    - name: Display provisioning summary
+      ansible.builtin.debug:
+        msg: >
+          User '{{ minio_target_user }}' successfully provisioned on '{{ inventory_hostname }}'
+          with access restricted strictly to bucket '{{ minio_target_bucket }}'.

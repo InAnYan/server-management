@@ -16,6 +16,10 @@ All persistent administrative credentials reside strictly on the host in `/srv/s
 - `/srv/secrets/technitium_api_token`: Persistent API token for Technitium DNS automation
 - `/srv/secrets/gitea_admin_password`: Gitea administrator account password
 - `/srv/secrets/gitea_db_password`: Gitea dedicated PostgreSQL database role password
+- `/srv/secrets/redis_core_password`: Core Valkey / Redis shared access password
+- `/srv/secrets/redis_dev_password`: Development Valkey / Redis shared access password
+- `/srv/secrets/redis_prod_password`: Production Valkey / Redis shared access password
+- `/srv/secrets/minio_admin_password`: MinIO S3 root administrative credentials password
 
 Coordinator and application containers receive credentials via environment variables or API calls at runtime. PostgreSQL instances store `POSTGRES_PASSWORD` in `/opt/postgres/docker-compose.yml` (strictly protected with `0600 root:root` permissions) to satisfy initial database bootstrap.
 

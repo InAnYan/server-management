@@ -5,3 +5,9 @@ proxmox_node      = "pve-01"
 
 # Feature flags for optional service VMs
 enable_technitium = true
+enable_redis_core = false
+enable_redis_dev  = false
+enable_redis_prod = false
+enable_minio_core = false
+enable_minio_dev  = false
+enable_minio_prod = false

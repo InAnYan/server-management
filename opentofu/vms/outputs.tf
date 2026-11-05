@@ -53,3 +53,51 @@ output "prod_postgres_vm_id" {
 output "prod_postgres_ip" {
   value = module.prod_postgres.ip
 }
+
+output "redis_core_vm_id" {
+  value = var.enable_redis_core ? module.redis_core[0].vm_id : null
+}
+
+output "redis_core_ip" {
+  value = var.enable_redis_core ? module.redis_core[0].ip : null
+}
+
+output "redis_dev_vm_id" {
+  value = var.enable_redis_dev ? module.redis_dev[0].vm_id : null
+}
+
+output "redis_dev_ip" {
+  value = var.enable_redis_dev ? module.redis_dev[0].ip : null
+}
+
+output "redis_prod_vm_id" {
+  value = var.enable_redis_prod ? module.redis_prod[0].vm_id : null
+}
+
+output "redis_prod_ip" {
+  value = var.enable_redis_prod ? module.redis_prod[0].ip : null
+}
+
+output "minio_core_vm_id" {
+  value = var.enable_minio_core ? module.minio_core[0].vm_id : null
+}
+
+output "minio_core_ip" {
+  value = var.enable_minio_core ? module.minio_core[0].ip : null
+}
+
+output "minio_dev_vm_id" {
+  value = var.enable_minio_dev ? module.minio_dev[0].vm_id : null
+}
+
+output "minio_dev_ip" {
+  value = var.enable_minio_dev ? module.minio_dev[0].ip : null
+}
+
+output "minio_prod_vm_id" {
+  value = var.enable_minio_prod ? module.minio_prod[0].vm_id : null
+}
+
+output "minio_prod_ip" {
+  value = var.enable_minio_prod ? module.minio_prod[0].ip : null
+}

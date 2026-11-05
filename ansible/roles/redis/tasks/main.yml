@@ -1,0 +1,46 @@
+---
+# Valkey / Redis role tasks
+# [impl->req~configuration-ansible~1]
+
+- name: Ensure Redis configuration and data directory exists
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    owner: root
+    group: root
+    mode: "0750"
+  loop:
+    - "{{ redis_dir }}"
+    - "{{ redis_dir }}/data"
+  tags:
+    - redis
+
+- name: Deploy Redis Docker Compose configuration
+  ansible.builtin.template:
+    src: docker-compose.yml.j2
+    dest: "{{ redis_dir }}/docker-compose.yml"
+    owner: root
+    group: root
+    mode: "0600"
+  register: redis_compose_file_result
+  tags:
+    - redis
+
+- name: Pull and start Redis container
+  ansible.builtin.command:
+    cmd: docker compose up -d --remove-orphans
+    chdir: "{{ redis_dir }}"
+  register: redis_compose_result
+  changed_when: "'Started' in redis_compose_result.stdout or 'Recreated' in redis_compose_result.stdout or 'Pulling' in redis_compose_result.stdout"
+  tags:
+    - redis
+
+- name: Wait for Redis port to accept connections
+  ansible.builtin.wait_for:
+    host: 127.0.0.1
+    port: "{{ redis_port }}"
+    state: started
+    delay: 1
+    timeout: 30
+  tags:
+    - redis

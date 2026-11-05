@@ -16,3 +16,5 @@ New decisions should be proposed by copying [`template.md`](template.md) into a 
 - [ADR-0007: Choose Technitium as Authoritative DNS Server](0007-choose-technitium-as-authoritative-dns-server.md)
 - [ADR-0008: Choose Gitea for Git Repository and Collaboration Platform](0008-choose-gitea-for-git-collaboration.md)
 - [ADR-0009: Choose Virtual Machines over LXC Containers](0009-choose-virtual-machines-over-lxc-containers.md)
+- [ADR-0010: Choose Valkey as In-Memory Cache Database](0010-choose-valkey-as-in-memory-cache-database.md)
+- [ADR-0011: Choose MinIO as S3-Compatible Object Storage](0011-choose-minio-as-s3-compatible-object-storage.md)

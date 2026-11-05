@@ -16,3 +16,13 @@ caddy_sites:
     host: core-coord-gitea
     port: 3000
     enabled: true
+  - name: minio
+    domain: "{{ minio_domain }}"
+    host: core-data-minio
+    port: 9000
+    enabled: "{{ enable_minio_core | default(false) }}"
+  - name: minio-console
+    domain: "{{ minio_console_domain }}"
+    host: core-data-minio
+    port: 9001
+    enabled: "{{ enable_minio_core | default(false) }}"

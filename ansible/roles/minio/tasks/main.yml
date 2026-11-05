@@ -1,0 +1,71 @@
+---
+# MinIO S3 object storage role tasks
+# [impl->req~configuration-ansible~1]
+
+- name: Ensure MinIO configuration and data directories exist
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    owner: root
+    group: root
+    mode: "0750"
+  loop:
+    - "{{ minio_dir }}"
+    - "{{ minio_dir }}/data"
+  tags:
+    - minio
+
+- name: Deploy MinIO Docker Compose configuration
+  ansible.builtin.template:
+    src: docker-compose.yml.j2
+    dest: "{{ minio_dir }}/docker-compose.yml"
+    owner: root
+    group: root
+    mode: "0600"
+  register: minio_compose_file_result
+  tags:
+    - minio
+
+- name: Pull and start MinIO container
+  ansible.builtin.command:
+    cmd: docker compose up -d --remove-orphans
+    chdir: "{{ minio_dir }}"
+  register: minio_compose_result
+  changed_when: "'Started' in minio_compose_result.stdout or 'Recreated' in minio_compose_result.stdout or 'Pulling' in minio_compose_result.stdout"
+  tags:
+    - minio
+
+- name: Wait for MinIO health endpoint to respond
+  ansible.builtin.uri:
+    url: "http://127.0.0.1:{{ minio_api_port }}/minio/health/live"
+    status_code: 200
+    return_content: false
+  register: minio_health
+  until: minio_health.status == 200
+  retries: 20
+  delay: 2
+  tags:
+    - minio
+
+- name: Deploy MinIO Client (mc) wrapper script
+  ansible.builtin.copy:
+    dest: /usr/local/bin/mc
+    owner: root
+    group: root
+    mode: "0755"
+    content: |
+      #!/bin/sh
+      exec docker run --rm -i --network host -v /root/.mc:/root/.mc minio/mc "$@"
+  tags:
+    - minio
+
+- name: Configure local MinIO Client alias
+  ansible.builtin.command:
+    cmd: >
+      /usr/local/bin/mc alias set local
+      http://127.0.0.1:{{ minio_api_port }}
+      {{ minio_root_user }}
+      {{ minio_root_password }}
+  changed_when: false
+  tags:
+    - minio

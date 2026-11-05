@@ -13,6 +13,12 @@ module "vms" {
   node_name         = var.proxmox_node
   image_id          = proxmox_virtual_environment_download_file.debian_cloud_image.id
   enable_technitium = var.enable_technitium
+  enable_redis_core = var.enable_redis_core
+  enable_redis_dev  = var.enable_redis_dev
+  enable_redis_prod = var.enable_redis_prod
+  enable_minio_core = var.enable_minio_core
+  enable_minio_dev  = var.enable_minio_dev
+  enable_minio_prod = var.enable_minio_prod
 
   pools = {
     core_coord = proxmox_virtual_environment_pool.core_coord.pool_id

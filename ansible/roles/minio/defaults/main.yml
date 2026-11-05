@@ -1,0 +1,16 @@
+---
+# Default variables for MinIO S3 object storage role
+minio_dir: /opt/minio
+minio_image: "minio/minio:latest"
+minio_api_port: 9000
+minio_console_port: 9001
+
+minio_root_user: "{{ minio_admin_user | default('minioadmin') }}"
+minio_root_password: >-
+  {{
+    lookup('file', '/srv/secrets/minio_' ~ (inventory_hostname.split('-')[0]) ~ '_admin_password', errors='ignore')
+    | default(lookup('file', '/srv/secrets/minio_admin_password', errors='ignore'), true)
+    | default(lookup('file', '/srv/admin/secrets/minio_admin_password', errors='ignore'), true)
+    | default(minio_admin_password | default('ChangeMeMinioSecretPassword123!'), true)
+    | trim
+  }}

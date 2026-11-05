@@ -9,7 +9,20 @@
   tasks:
     - name: Classify node availability
       ansible.builtin.group_by:
-        key: "{{ 'active_nodes' if (inventory_hostname != 'core-app-technitium' or (enable_technitium | default(true) | bool)) else 'disabled_nodes' }}"
+        key: >-
+          {{
+            'active_nodes'
+            if (
+              (inventory_hostname != 'core-app-technitium' or (enable_technitium | default(true) | bool)) and
+              (inventory_hostname != 'core-data-redis' or (enable_redis_core | default(false) | bool)) and
+              (inventory_hostname != 'dev-data-redis' or (enable_redis_dev | default(false) | bool)) and
+              (inventory_hostname != 'prod-data-redis' or (enable_redis_prod | default(false) | bool)) and
+              (inventory_hostname != 'core-data-minio' or (enable_minio_core | default(false) | bool)) and
+              (inventory_hostname != 'dev-data-minio' or (enable_minio_dev | default(false) | bool)) and
+              (inventory_hostname != 'prod-data-minio' or (enable_minio_prod | default(false) | bool))
+            )
+            else 'disabled_nodes'
+          }}
 
 - name: Bootstrap host environment, SSH keys, and secrets
   hosts: proxmox
@@ -37,13 +50,32 @@
         - docker
 
 - name: Deploy PostgreSQL database server
-  hosts: core_databases:dev_databases:prod_databases:&active_nodes
+  hosts: postgres_hosts:&active_nodes
   become: true
   roles:
     - role: postgres
       tags:
         - postgres
         - database
+
+- name: Deploy Valkey / Redis in-memory cache server
+  hosts: redis_hosts:&active_nodes
+  become: true
+  roles:
+    - role: redis
+      tags:
+        - redis
+        - cache
+
+- name: Deploy MinIO S3 object storage server
+  hosts: minio_hosts:&active_nodes
+  become: true
+  roles:
+    - role: minio
+      tags:
+        - minio
+        - s3
+        - storage
 
 - name: Deploy Technitium DNS server
   hosts: core-app-technitium:&active_nodes

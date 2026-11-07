@@ -11,7 +11,7 @@ Standard naming rules, identifier structures, and numeric ranges across the infr
 
 ## Machine Name
 
-Virtual machines and LXC containers follow a strict three-part hierarchical naming schema:
+Virtual machines and LXC containers follow a strict three-part hierarchical naming schema (illustrated in the [Workload Subdivision Diagram](../idea.md#workload-subdivision-environment--type)):
 
 ```text
 <category>-<subcategory>-<name>

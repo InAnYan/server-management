@@ -60,6 +60,48 @@ Virtual machines and network segments are organized along two orthogonal axes: *
 
 Each unique combination of Environment and Type is mapped to a dedicated Software-Defined Network (**VNet**) and an isolated Proxmox **Resource Pool**.
 
+```mermaid
+flowchart TD
+    Infrastructure["Infrastructure Workloads<br/>(Proxmox VE Cluster / Host)"]
+
+    subgraph CoreEnv["Category: core (Platform & Operations)"]
+        direction TB
+        subgraph CoreCoord["Subcategory: coord (Coordinators & Ingress)"]
+            CoordVMs["Workloads: Caddy, Uptime Kuma, Gitea<br/>SDN VNet: vcoord (10.10.1.0/24)<br/>Resource Pool: core-coord<br/>VMID Range: 1000–1499"]
+        end
+        subgraph CoreApp["Subcategory: app (Platform Compute)"]
+            CoreAppVMs["Workloads: Technitium DNS<br/>SDN VNet: vcore (10.11.0.0/16)<br/>Resource Pool: core-app<br/>VMID Range: 1500–1899"]
+        end
+        subgraph CoreData["Subcategory: data (Platform State)"]
+            CoreDataVMs["Workloads: Core PostgreSQL, Valkey Cache, MinIO S3<br/>SDN VNet: vcdb (10.10.2.0/24)<br/>Resource Pool: core-data<br/>VMID Range: 1900–1999"]
+        end
+    end
+
+    subgraph DevEnv["Category: dev (Development Tier)"]
+        direction TB
+        subgraph DevApp["Subcategory: app (Development Compute)"]
+            DevAppVMs["Workloads: Dev APIs, Web Apps, Previews<br/>SDN VNet: vdev (10.21.0.0/16)<br/>Resource Pool: dev-app<br/>VMID Range: 2000–2899"]
+        end
+        subgraph DevData["Subcategory: data (Development State)"]
+            DevDataVMs["Workloads: Dev PostgreSQL, Valkey Cache, MinIO S3<br/>SDN VNet: vddb (10.20.2.0/24)<br/>Resource Pool: dev-data<br/>VMID Range: 2900–2999"]
+        end
+    end
+
+    subgraph ProdEnv["Category: prod (Production Tier)"]
+        direction TB
+        subgraph ProdApp["Subcategory: app (Production Compute)"]
+            ProdAppVMs["Workloads: Production APIs, Public Services<br/>SDN VNet: vprod (10.32.0.0/16)<br/>Resource Pool: prod-app<br/>VMID Range: 3000–3899"]
+        end
+        subgraph ProdData["Subcategory: data (Production State)"]
+            ProdDataVMs["Workloads: Production PostgreSQL, Valkey Cache, MinIO S3<br/>SDN VNet: vpdb (10.30.2.0/24)<br/>Resource Pool: prod-data<br/>VMID Range: 3900–3999"]
+        end
+    end
+
+    Infrastructure --> CoreEnv
+    Infrastructure --> DevEnv
+    Infrastructure --> ProdEnv
+```
+
 ### 1. Environment Axis
 
 - **`core`**: Foundational management, routing, DNS, Git, and shared operational services required by the server itself.

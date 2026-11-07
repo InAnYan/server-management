@@ -73,40 +73,69 @@ Strict isolation is maintained between environments to implement least-privilege
 
 ```mermaid
 flowchart TD
-    Internet["Internet (Public WAN)"]
-
-    subgraph CoreCoordinator["Core Coordinator (10.10.1.0/24)"]
-        CoordApps["Gitea, Caddy, Uptime Kuma"]
+    subgraph External["External Networks"]
+        Internet["Public Internet (WAN)"]
+        Tailscale["Tailscale Mesh (100.64.0.0/10)"]
     end
 
-    subgraph CoreTier["Core Services"]
-        CoreApps["Core Apps (10.11.0.0/16)<br/>Technitium, Uptime Kuma"]
-        CoreDB["Core Databases (10.10.2.0/24)"]
+    subgraph HostGateway["Proxmox VE Host Edge (vmbr0)"]
+        HostIngress["Host Edge & Ingress Proxy<br/>Ports 80/443 &rarr; Caddy (vcoord)<br/>Port 53 &rarr; Technitium (vcore)<br/>Port 2222 &rarr; Gitea (vcoord)<br/>Ports 22/8006 &rarr; Tailscale Only"]
+    end
+
+    subgraph CoreTier["Core Environment"]
+        vcoord["Core Coordinator (10.10.1.0/24)<br/>vnet-core-coord: Caddy, Uptime Kuma, Gitea"]
+        vcore["Core Apps (10.11.0.0/16)<br/>vnet-core-app: Technitium DNS"]
+        vcdb["Core Data (10.10.2.0/24)<br/>vnet-core-data: PostgreSQL, Valkey, MinIO"]
     end
 
     subgraph DevTier["Dev Environment"]
-        DevApps["Dev Apps (10.21.0.0/16)"]
-        DevDB["Dev Databases (10.20.2.0/24)"]
+        vdev["Dev Apps (10.21.0.0/16)<br/>vnet-dev-app: APIs, Web Workloads"]
+        vddb["Dev Data (10.20.2.0/24)<br/>vnet-dev-data: PostgreSQL, Valkey, MinIO"]
     end
 
     subgraph ProdTier["Prod Environment"]
-        ProdApps["Prod Apps (10.32.0.0/16)"]
-        ProdDB["Prod Databases (10.30.2.0/24)"]
+        vprod["Prod Apps (10.32.0.0/16)<br/>vnet-prod-app: Production APIs, Workloads"]
+        vpdb["Prod Data (10.30.2.0/24)<br/>vnet-prod-data: PostgreSQL, Valkey, MinIO"]
     end
 
-    CoordApps -->|"Egress"| Internet
-    CoreApps -->|"Egress"| Internet
-    DevApps -->|"Egress"| Internet
-    ProdApps -->|"Egress"| Internet
+    %% External Ingress
+    Tailscale -->|"ALLOW: SSH 22, PVE GUI 8006"| HostIngress
+    Internet -->|"ALLOW: HTTP 80, HTTPS 443"| HostIngress
+    Internet -->|"ALLOW: DNS 53, Git SSH 2222"| HostIngress
+    HostIngress -->|"Route HTTP/S"| vcoord
+    HostIngress -->|"Proxy DNS"| vcore
+    HostIngress -->|"Proxy Git SSH"| vcoord
 
-    CoordApps --> CoreApps
-    CoordApps --> CoreDB
-    CoordApps --> DevApps
-    CoordApps --> ProdApps
+    %% Coordinator Management Flows (Allowed)
+    vcoord -->|"ALLOW: Manage / Route"| vcore
+    vcoord -->|"ALLOW: Manage / Route"| vcdb
+    vcoord -->|"ALLOW: Ingress / Route"| vdev
+    vcoord -->|"ALLOW: Manage / Monitor"| vddb
+    vcoord -->|"ALLOW: Ingress / Route"| vprod
+    vcoord -->|"ALLOW: Manage / Monitor"| vpdb
 
-    CoreApps --> CoreDB
-    DevApps --> DevDB
-    ProdApps --> ProdDB
+    %% Intra-Environment Flows (Allowed)
+    vcore -->|"ALLOW: Query / Store"| vcdb
+    vdev -->|"ALLOW: Intra-Dev Data"| vddb
+    vprod -->|"ALLOW: Intra-Prod Data"| vpdb
+
+    %% Outbound Internet Egress (SNAT Allowed)
+    vcoord -->|"ALLOW: SNAT Egress"| Internet
+    vcore -->|"ALLOW: Upstream DNS Egress"| Internet
+    vdev -->|"ALLOW: SNAT Egress"| Internet
+    vprod -->|"ALLOW: SNAT Egress"| Internet
+
+    %% Native Datacenter Firewall DROP Rules
+    vdev -.-x|"DROP: Cross-Env Isolation"| vprod
+    vdev -.-x|"DROP: Cross-Env Isolation"| vpdb
+    vddb -.-x|"DROP: Cross-Env Isolation"| vpdb
+    vdev -.-x|"DROP: Cross-Tier Isolation"| vcore
+    vdev -.-x|"DROP: Cross-Tier Isolation"| vcdb
+    vprod -.-x|"DROP: Cross-Tier Isolation"| vcore
+    vprod -.-x|"DROP: Cross-Tier Isolation"| vcdb
+    vcdb -.-x|"DROP: Zero Internet Egress"| Internet
+    vddb -.-x|"DROP: Zero Internet Egress"| Internet
+    vpdb -.-x|"DROP: Zero Internet Egress"| Internet
 ```
 
 ## Proxmox SDN & Firewall Implementation

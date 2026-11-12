@@ -1,0 +1,158 @@
+---
+# Provision utility bot user, Gitea Actions token, and CI/registry access token
+
+- name: Query existing Gitea users for utility bot
+  ansible.builtin.command:
+    cmd: docker exec -u git core-gitea gitea admin user list -c /data/gitea/conf/app.ini
+  register: gitea_users_list_utility
+  changed_when: false
+
+- name: Create Gitea utility bot account
+  ansible.builtin.command:
+    cmd: >
+      docker exec -u git core-gitea gitea admin user create
+      --username "{{ gitea_utility_user }}"
+      --password "{{ gitea_utility_password }}"
+      --email "{{ gitea_utility_email }}"
+      --admin
+      --must-change-password=false
+      -c /data/gitea/conf/app.ini
+  when: "gitea_utility_user not in gitea_users_list_utility.stdout"
+  changed_when: true
+
+- name: Check if utility access token file exists
+  ansible.builtin.stat:
+    path: /srv/admin/secrets/gitea_utility_token
+  delegate_to: localhost
+  register: utility_token_stat
+
+- name: Generate access token for utility user
+  ansible.builtin.command:
+    cmd: >
+      docker exec -u git core-gitea gitea admin user generate-access-token
+      --username "{{ gitea_utility_user }}"
+      --token-name "ci-token-{{ ansible_date_time.epoch }}"
+      --scopes "{{ gitea_utility_token_scopes | default('all') }}"
+      --raw
+      -c /data/gitea/conf/app.ini
+  register: gitea_new_token_out
+  when: not utility_token_stat.stat.exists or (gitea_utility_token | length == 0)
+  changed_when: true
+
+- name: Save utility access token to secrets directory
+  ansible.builtin.copy:
+    dest: /srv/admin/secrets/gitea_utility_token
+    content: "{{ gitea_new_token_out.stdout | trim }}"
+    owner: "{{ host_admin_user | default('ruslan') }}"
+    group: sudo
+    mode: "0600"
+  delegate_to: localhost
+  when:
+    - gitea_new_token_out is defined
+    - gitea_new_token_out.stdout is defined
+    - gitea_new_token_out.stdout | length > 0
+
+- name: Update gitea_utility_token fact in current execution
+  ansible.builtin.set_fact:
+    gitea_utility_token: "{{ gitea_new_token_out.stdout | trim }}"
+  when:
+    - gitea_new_token_out is defined
+    - gitea_new_token_out.stdout is defined
+    - gitea_new_token_out.stdout | length > 0
+
+- name: Create Gitea Atlantis bot account
+  ansible.builtin.command:
+    cmd: >
+      docker exec -u git core-gitea gitea admin user create
+      --username "{{ gitea_atlantis_user }}"
+      --password "{{ gitea_utility_password }}"
+      --email "{{ gitea_atlantis_email }}"
+      --admin
+      --must-change-password=false
+      -c /data/gitea/conf/app.ini
+  when:
+    - enable_atlantis | default(true) | bool
+    - gitea_atlantis_user not in gitea_users_list_utility.stdout
+  changed_when: true
+
+- name: Check if Atlantis access token file exists
+  ansible.builtin.stat:
+    path: /srv/admin/secrets/atlantis_gitea_token
+  delegate_to: localhost
+  register: atlantis_token_stat
+
+- name: Generate access token for Atlantis user
+  ansible.builtin.command:
+    cmd: >
+      docker exec -u git core-gitea gitea admin user generate-access-token
+      --username "{{ gitea_atlantis_user }}"
+      --token-name "atlantis-token-{{ ansible_date_time.epoch }}"
+      --scopes "{{ gitea_utility_token_scopes | default('all') }}"
+      --raw
+      -c /data/gitea/conf/app.ini
+  register: atlantis_new_token_out
+  when:
+    - enable_atlantis | default(true) | bool
+    - not atlantis_token_stat.stat.exists or (gitea_atlantis_token | length == 0)
+  changed_when: true
+
+- name: Save Atlantis access token to secrets directory
+  ansible.builtin.copy:
+    dest: /srv/admin/secrets/atlantis_gitea_token
+    content: "{{ atlantis_new_token_out.stdout | trim }}"
+    owner: "{{ host_admin_user | default('ruslan') }}"
+    group: sudo
+    mode: "0600"
+  delegate_to: localhost
+  when:
+    - atlantis_new_token_out is defined
+    - atlantis_new_token_out.stdout is defined
+    - atlantis_new_token_out.stdout | length > 0
+
+- name: Update gitea_atlantis_token fact in current execution
+  ansible.builtin.set_fact:
+    gitea_atlantis_token: "{{ atlantis_new_token_out.stdout | trim }}"
+  when:
+    - atlantis_new_token_out is defined
+    - atlantis_new_token_out.stdout is defined
+    - atlantis_new_token_out.stdout | length > 0
+
+- name: Generate Gitea Actions runner registration token
+  ansible.builtin.command:
+    cmd: docker exec -u git core-gitea gitea actions generate-runner-token -c /data/gitea/conf/app.ini
+  register: runner_token_out
+  changed_when: false
+  when: enable_gitea_actions | default(true) | bool
+
+- name: Save Gitea runner registration token
+  ansible.builtin.copy:
+    dest: /srv/admin/secrets/gitea_runner_token
+    content: "{{ runner_token_out.stdout | trim }}"
+    owner: "{{ host_admin_user | default('ruslan') }}"
+    group: sudo
+    mode: "0600"
+  delegate_to: localhost
+  when:
+    - runner_token_out is defined
+    - runner_token_out.stdout is defined
+    - runner_token_out.stdout | length > 0
+
+- name: Update gitea_runner_token fact in current execution
+  ansible.builtin.set_fact:
+    gitea_runner_token: "{{ runner_token_out.stdout | trim }}"
+  when:
+    - runner_token_out is defined
+    - runner_token_out.stdout is defined
+    - runner_token_out.stdout | length > 0
+
+- name: Ensure Proxmox pool ACL permissions are configured for Atlantis
+  ansible.builtin.command:
+    cmd: "pveum acl modify {{ item.path }} -user atlantis-prov@pve -token 'atlantis-prov@pve!tofu' -role {{ item.role }}"
+  loop:
+    - { path: "/pool/dev-app", role: "PVEPoolAdmin" }
+    - { path: "/pool/dev-app", role: "PVEVMAdmin" }
+    - { path: "/pool/prod-app", role: "PVEPoolAdmin" }
+    - { path: "/pool/prod-app", role: "PVEVMAdmin" }
+  delegate_to: localhost
+  failed_when: false
+  when: enable_atlantis | default(true) | bool

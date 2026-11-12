@@ -1,0 +1,10 @@
+---
+# Default variables for Valkey / Redis in-memory cache role
+redis_dir: /opt/redis
+redis_image: "valkey/valkey:8.0-alpine"
+redis_port: 6379
+redis_uid: "999"
+redis_gid: "1000"
+
+# Password resolution from host-specific persistent secret file
+redis_password: "{{ lookup('file', '/srv/admin/secrets/redis_' ~ (inventory_hostname.split('-')[0]) ~ '_password', errors='ignore') | trim }}"

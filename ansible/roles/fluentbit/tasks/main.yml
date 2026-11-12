@@ -1,0 +1,54 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ansible/ansible-lint/main/src/ansiblelint/schemas/ansible.json
+---
+# [impl->req~centralized-logging~1]
+- name: Ensure apt keyring directory exists
+  ansible.builtin.file:
+    path: /etc/apt/keyrings
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+
+- name: Download Fluent Bit official GPG key
+  ansible.builtin.get_url:
+    url: https://packages.fluentbit.io/fluentbit.key
+    dest: /tmp/fluentbit.key
+    mode: "0644"
+  environment: "{{ {'http_proxy': 'http://' ~ ansible_default_ipv4.gateway ~ ':8888', 'https_proxy': 'http://' ~ ansible_default_ipv4.gateway ~ ':8888'} if not (node_has_internet | default(true) | bool) else {} }}"
+
+- name: Dearmor Fluent Bit GPG key
+  ansible.builtin.command:
+    cmd: gpg --dearmor --yes -o /etc/apt/keyrings/fluentbit.gpg /tmp/fluentbit.key
+    creates: /etc/apt/keyrings/fluentbit.gpg
+
+- name: Clean up temporary GPG key file
+  ansible.builtin.file:
+    path: /tmp/fluentbit.key
+    state: absent
+
+- name: Configure Fluent Bit official APT repository
+  ansible.builtin.apt_repository:
+    repo: "deb [signed-by=/etc/apt/keyrings/fluentbit.gpg] https://packages.fluentbit.io/debian/{{ ansible_distribution_release }} {{ ansible_distribution_release }} main"
+    state: present
+    filename: fluent-bit
+
+- name: Install Fluent Bit package
+  ansible.builtin.apt:
+    name: fluent-bit
+    state: present
+    update_cache: true
+
+- name: Deploy Fluent Bit configuration
+  ansible.builtin.template:
+    src: fluent-bit.conf.j2
+    dest: /etc/fluent-bit/fluent-bit.conf
+    owner: root
+    group: root
+    mode: "0644"
+  notify: Restart fluent-bit
+
+- name: Ensure Fluent Bit service is enabled and started
+  ansible.builtin.systemd:
+    name: fluent-bit
+    enabled: true
+    state: started

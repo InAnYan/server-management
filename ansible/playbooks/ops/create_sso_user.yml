@@ -1,0 +1,141 @@
+---
+# [impl->req~app-accounts-ansible~1]
+- name: Provision platform Single Sign-On (SSO) user in Authentik
+  hosts: core-coord-authentik
+  gather_facts: false
+  vars:
+    sso_username: "{{ username | mandatory }}"
+    sso_email: "{{ email | default(sso_username ~ '@' ~ (dns_zone_name | default('example.com'))) }}"
+    sso_name: "{{ full_name | default(display_name | default(sso_username)) }}"
+    sso_groups: "{{ (groups_list | from_yaml) if (groups_list is string and (groups_list.startswith('[') or groups_list.startswith('{'))) else ([groups_list] if groups_list is string else (groups_list | default(['admins']))) }}"
+    sso_is_superuser: "{{ is_superuser | default(true if 'admins' in sso_groups else false) }}"
+    authentik_api_token: "{{ lookup('file', '/srv/admin/secrets/authentik_bootstrap_token', errors='ignore') | trim }}"
+    authentik_api_url: "http://127.0.0.1:{{ authentik_http_port | default(9000) }}/api/v3"
+
+  tasks:
+    - name: Establish deterministic SSO user password
+      ansible.builtin.set_fact:
+        sso_password: >-
+          {{
+            password
+            | default(lookup('file', '/srv/admin/secrets/authentik_' ~ sso_username ~ '_password', errors='ignore') | trim)
+            | default(lookup('password', '/dev/null length=24 chars=ascii_letters,digits,!@#$%^&*'), true)
+          }}
+
+    - name: Persist SSO credentials to secrets directory
+      ansible.builtin.copy:
+        content: "{{ sso_password }}"
+        dest: "/srv/admin/secrets/authentik_{{ sso_username }}_password"
+        mode: "0600"
+      delegate_to: localhost
+      failed_when: false
+    - name: Validate that Authentik API token is available
+      ansible.builtin.assert:
+        that:
+          - authentik_api_token | length > 0
+        fail_msg: "Authentik API bootstrap token not found in /srv/admin/secrets/authentik_bootstrap_token"
+
+    - name: Ensure target groups exist in Authentik
+      ansible.builtin.uri:
+        url: "{{ authentik_api_url }}/core/groups/"
+        method: POST
+        headers:
+          Authorization: "Bearer {{ authentik_api_token }}"
+          Content-Type: "application/json"
+        body_format: json
+        body:
+          name: "{{ item }}"
+          is_superuser: "{{ true if item == 'admins' else false }}"
+        status_code: [200, 201, 400]
+      loop: "{{ sso_groups }}"
+      register: group_create_results
+
+    - name: Retrieve group UUIDs from Authentik
+      ansible.builtin.uri:
+        url: "{{ authentik_api_url }}/core/groups/?name={{ item }}"
+        headers:
+          Authorization: "Bearer {{ authentik_api_token }}"
+        status_code: 200
+      loop: "{{ sso_groups }}"
+      register: group_query_results
+
+    - name: Compile list of group UUIDs
+      ansible.builtin.set_fact:
+        resolved_group_ids: >-
+          {{
+            group_query_results.results
+            | selectattr('json.results', 'defined')
+            | map(attribute='json.results')
+            | select('truthy')
+            | map('first')
+            | map(attribute='pk')
+            | list
+          }}
+
+    - name: Check if user already exists in Authentik
+      ansible.builtin.uri:
+        url: "{{ authentik_api_url }}/core/users/?username={{ sso_username }}"
+        headers:
+          Authorization: "Bearer {{ authentik_api_token }}"
+        status_code: 200
+      register: user_query_result
+
+    - name: Create new SSO user if absent
+      ansible.builtin.uri:
+        url: "{{ authentik_api_url }}/core/users/"
+        method: POST
+        headers:
+          Authorization: "Bearer {{ authentik_api_token }}"
+          Content-Type: "application/json"
+        body_format: json
+        body:
+          username: "{{ sso_username }}"
+          name: "{{ sso_name }}"
+          email: "{{ sso_email }}"
+          groups: "{{ resolved_group_ids }}"
+          is_active: true
+        status_code: [201]
+      register: user_create_result
+      when: user_query_result.json.pagination.count == 0
+
+    - name: Resolve user UUID
+      ansible.builtin.set_fact:
+        target_user_id: "{{ user_create_result.json.pk if user_query_result.json.pagination.count == 0 else user_query_result.json.results[0].pk }}"
+
+    - name: Update existing user groups
+      ansible.builtin.uri:
+        url: "{{ authentik_api_url }}/core/users/{{ target_user_id }}/"
+        method: PATCH
+        headers:
+          Authorization: "Bearer {{ authentik_api_token }}"
+          Content-Type: "application/json"
+        body_format: json
+        body:
+          groups: "{{ resolved_group_ids }}"
+        status_code: [200]
+      when: user_query_result.json.pagination.count > 0
+
+    - name: Set user password in Authentik
+      ansible.builtin.uri:
+        url: "{{ authentik_api_url }}/core/users/{{ target_user_id }}/set_password/"
+        method: POST
+        headers:
+          Authorization: "Bearer {{ authentik_api_token }}"
+          Content-Type: "application/json"
+        body_format: json
+        body:
+          password: "{{ sso_password }}"
+        status_code: [200, 204]
+
+    - name: Display SSO account provisioning summary
+      ansible.builtin.debug:
+        msg:
+          - "=========================================================="
+          - "       SINGLE SIGN-ON (SSO) USER PROVISIONED               "
+          - "=========================================================="
+          - "Username     : {{ sso_username }}"
+          - "Email        : {{ sso_email }}"
+          - "Password     : {{ sso_password }}"
+          - "Groups       : {{ sso_groups }}"
+          - "Login URL    : https://{{ auth_domain | default('auth.example.com') }}"
+          - "=========================================================="

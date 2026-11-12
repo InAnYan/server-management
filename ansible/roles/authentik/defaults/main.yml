@@ -1,0 +1,66 @@
+---
+authentik_dir: "/opt/authentik"
+authentik_image: "ghcr.io/goauthentik/server:2024.10.4"
+authentik_http_port: 9000
+authentik_https_port: 9443
+authentik_domain: "{{ auth_domain }}"
+
+authentik_postgres_host: "10.10.2.10"
+authentik_postgres_port: 5432
+authentik_postgres_user: "authentik"
+authentik_postgres_db: "authentik"
+authentik_postgres_password: "{{ lookup('file', '/srv/admin/secrets/authentik_db_password', errors='ignore') | trim }}"
+authentik_redis_host: "10.10.2.11"
+authentik_redis_password: "{{ lookup('file', '/srv/admin/secrets/redis_core_password', errors='ignore') | trim }}"
+
+authentik_secret_key: "{{ lookup('file', '/srv/admin/secrets/authentik_secret_key', errors='ignore') | trim }}"
+authentik_bootstrap_token: "{{ lookup('file', '/srv/admin/secrets/authentik_bootstrap_token', errors='ignore') | trim }}"
+authentik_bootstrap_password: "{{ lookup('file', '/srv/admin/secrets/authentik_admin_password', errors='ignore') | trim }}"
+authentik_bootstrap_email: "admin@{{ dns_zone_name }}"
+
+authentik_sso_applications:
+  - name: "Gitea"
+    slug: "gitea"
+    client_id: "gitea"
+    client_secret: "{{ lookup('file', '/srv/admin/secrets/gitea_oidc_client_secret', errors='ignore') | trim }}"
+    redirect_uris:
+      - matching_mode: "strict"
+        url: "https://{{ gitea_domain }}/user/oauth2/authentik/callback"
+  - name: "Grafana"
+    slug: "grafana"
+    client_id: "grafana"
+    client_secret: "{{ lookup('file', '/srv/admin/secrets/grafana_oidc_client_secret', errors='ignore') | trim }}"
+    redirect_uris:
+      - matching_mode: "strict"
+        url: "https://{{ logs_domain }}/login/generic_oauth"
+  - name: "Technitium DNS"
+    slug: "dns"
+    client_id: "dns"
+    client_secret: "{{ lookup('file', '/srv/admin/secrets/dns_oidc_client_secret', errors='ignore') | default(lookup('file', '/srv/admin/secrets/powerdns_oidc_client_secret', errors='ignore')) | trim }}"
+    redirect_uris:
+      - matching_mode: "strict"
+        url: "https://{{ dns_domain }}/sso/callback"
+  - name: "Gatus"
+    slug: "gatus"
+    client_id: "gatus"
+    client_secret: "{{ lookup('file', '/srv/admin/secrets/gatus_oidc_client_secret', errors='ignore') | trim }}"
+    redirect_uris:
+      - matching_mode: "strict"
+        url: "https://{{ status_domain }}/authorization-code/callback"
+      - matching_mode: "strict"
+        url: "https://{{ status_dev_domain }}/authorization-code/callback"
+      - matching_mode: "strict"
+        url: "https://{{ status_internal_domain }}/authorization-code/callback"
+  - name: "Proxmox"
+    slug: "proxmox"
+    client_id: "proxmox"
+    client_secret: "{{ lookup('file', '/srv/admin/secrets/proxmox_oidc_client_secret', errors='ignore') | trim }}"
+    redirect_uris:
+      - matching_mode: "strict"
+        url: "https://{{ hostvars['proxmox'].ansible_host | default('100.66.153.67') }}:8006"
+      - matching_mode: "strict"
+        url: "https://{{ hostvars['proxmox'].ansible_host | default('100.66.153.67') }}:8006/"
+      - matching_mode: "strict"
+        url: "https://lserver:8006"
+      - matching_mode: "strict"
+        url: "https://lserver:8006/"

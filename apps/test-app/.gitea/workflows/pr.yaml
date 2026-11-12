@@ -1,0 +1,39 @@
+name: Pull Request CI Checks
+
+on:
+  pull_request:
+    branches:
+      - main
+      - prod
+
+jobs:
+  lint-and-test:
+    name: Code Quality & Unit Tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v3
+        with:
+          version: "latest"
+
+      - name: Set up Python
+        run: uv python install 3.11
+
+      - name: Run Ruff Linting
+        run: uv run --extra dev ruff check .
+
+      - name: Run Pytest Test Suite
+        run: uv run --extra dev pytest
+
+  docker-dry-run:
+    name: Dry-Run Docker Build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Validate Container Build
+        run: docker build -t test-app:test .

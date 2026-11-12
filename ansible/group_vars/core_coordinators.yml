@@ -1,0 +1,63 @@
+---
+# Variables for core coordinator hosts (e.g. core-coord-caddy)
+caddy_sites:
+  - name: dns
+    domain: "{{ dns_domain }}"
+    host: core-app-dns
+    port: 80
+    enabled: "{{ enable_dns }}"
+    tls_internal: true
+  - name: gatus
+    domain: "{{ status_domain }}"
+    host: core-coord-gatus
+    port: 80
+    enabled: true
+    tls_internal: true
+  - name: gatus-dev
+    domain: "{{ status_dev_domain }}"
+    host: core-coord-gatus
+    port: 8081
+    enabled: true
+    tls_internal: true
+  - name: gatus-internal
+    domain: "{{ status_internal_domain }}"
+    host: core-coord-gatus
+    port: 8082
+    enabled: true
+    tls_internal: true
+  - name: authentik
+    domain: "{{ auth_domain }}"
+    host: core-coord-authentik
+    port: 9000
+    enabled: true
+    tls_internal: true
+  - name: gitea
+    domain: "{{ gitea_domain }}"
+    host: core-coord-gitea
+    port: 3000
+    enabled: true
+    tls_internal: true
+  - name: infisical
+    domain: "{{ infisical_domain }}"
+    host: core-coord-infisical
+    port: 8080
+    enabled: true
+    tls_internal: true
+  - name: logs
+    domain: "{{ logs_domain }}"
+    host: core-coord-logger
+    port: 3000
+    enabled: true
+    tls_internal: true
+  - name: minio
+    domain: "{{ minio_domain }}"
+    host: core-data-minio
+    port: 9000
+    enabled: "{{ enable_minio_core }}"
+    tls_internal: true
+  - name: minio-console
+    domain: "{{ minio_console_domain }}"
+    host: core-data-minio
+    port: 9001
+    enabled: "{{ enable_minio_core }}"
+    tls_internal: true

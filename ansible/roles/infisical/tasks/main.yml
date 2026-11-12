@@ -1,0 +1,163 @@
+---
+# Infisical secret management service role tasks
+# [impl->req~secrets-management-platform~1]
+# [impl->req~configuration-ansible~1]
+# [impl->req~app-accounts-ansible~1]
+
+- name: Ensure Infisical base directory exists
+  ansible.builtin.file:
+    path: "{{ infisical_dir }}"
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+  tags:
+    - infisical
+
+- name: Deploy Infisical Docker Compose configuration
+  ansible.builtin.template:
+    src: docker-compose.yml.j2
+    dest: "{{ infisical_dir }}/docker-compose.yml"
+    owner: root
+    group: root
+    mode: "0600"
+  register: infisical_compose_file_result
+  tags:
+    - infisical
+
+- name: Pull and start Infisical container
+  ansible.builtin.command:
+    cmd: docker compose up -d
+    chdir: "{{ infisical_dir }}"
+  register: infisical_compose_result
+  changed_when: "'Started' in infisical_compose_result.stdout or 'Recreated' in infisical_compose_result.stdout or 'Pulling' in infisical_compose_result.stdout"
+  tags:
+    - infisical
+
+- name: Wait for Infisical API to be healthy
+  ansible.builtin.uri:
+    url: "http://127.0.0.1:{{ infisical_port }}/api/status"
+    status_code:
+      - 200
+    return_content: false
+  register: infisical_health
+  until: infisical_health.status == 200
+  retries: 30
+  delay: 3
+  tags:
+    - infisical
+
+- name: Bootstrap root organization and primary administrator account
+  ansible.builtin.uri:
+    url: "http://127.0.0.1:{{ infisical_port }}/api/v1/admin/bootstrap"
+    method: POST
+    headers:
+      Content-Type: "application/json"
+    body_format: json
+    body:
+      email: "{{ infisical_admin_email }}"
+      password: "{{ lookup('file', '/srv/admin/secrets/infisical_admin_password', errors='ignore') | trim }}"
+      firstName: "{{ infisical_admin_first_name }}"
+      lastName: "{{ infisical_admin_last_name }}"
+      organization: "{{ infisical_org_name }}"
+    status_code:
+      - 200
+      - 201
+      - 400
+      - 403
+      - 409
+  register: infisical_bootstrap_resp
+  changed_when: infisical_bootstrap_resp.status in [200, 201]
+  tags:
+    - infisical
+
+- name: Persist instance admin bootstrap response if newly provisioned
+  ansible.builtin.copy:
+    dest: /srv/admin/secrets/infisical_admin_bootstrap.json
+    content: "{{ infisical_bootstrap_resp.json | to_nice_json }}"
+    owner: "{{ host_admin_user | default('ruslan') }}"
+    group: sudo
+    mode: "0600"
+  delegate_to: localhost
+  when:
+    - infisical_bootstrap_resp.status in [200, 201]
+    - infisical_bootstrap_resp.json is defined
+  tags:
+    - infisical
+
+- name: Read persisted Infisical bootstrap metadata if present
+  ansible.builtin.slurp:
+    src: /srv/admin/secrets/infisical_admin_bootstrap.json
+  register: infisical_bootstrap_file_slurp
+  failed_when: false
+  delegate_to: localhost
+  tags:
+    - infisical
+
+- name: Set Infisical admin bootstrap facts
+  ansible.builtin.set_fact:
+    _infisical_bootstrap_data: >-
+      {{
+        infisical_bootstrap_resp.json
+        if (infisical_bootstrap_resp.status in [200, 201] and infisical_bootstrap_resp.json is defined)
+        else (infisical_bootstrap_file_slurp.content | b64decode | from_json if (infisical_bootstrap_file_slurp.content is defined and (infisical_bootstrap_file_slurp.content | length > 0)) else {})
+      }}
+  tags:
+    - infisical
+
+- name: Extract Infisical admin identity token and organization id
+  ansible.builtin.set_fact:
+    infisical_admin_identity_token: "{{ _infisical_bootstrap_data.identity.credentials.token | default('') }}"
+    infisical_active_org_id: "{{ _infisical_bootstrap_data.organization.id | default('') }}"
+  tags:
+    - infisical
+
+- name: Synchronize default organization name and slug in PostgreSQL
+  ansible.builtin.command:
+    cmd: >
+      docker exec -i core-postgres psql -U {{ infisical_db_user }} -d {{ infisical_db_name }}
+      -c "UPDATE organizations SET name = '{{ infisical_org_name }}', slug = '{{ infisical_org_slug }}' WHERE id = '{{ infisical_active_org_id }}' AND (name != '{{ infisical_org_name }}' OR slug != '{{ infisical_org_slug }}');"
+  delegate_to: core-data-postgres
+  register: infisical_org_db_sync
+  changed_when: "'UPDATE 1' in infisical_org_db_sync.stdout"
+  when:
+    - infisical_active_org_id is defined
+    - infisical_active_org_id | length > 0
+  tags:
+    - infisical
+
+- name: Configure Infisical instance server settings
+  ansible.builtin.uri:
+    url: "http://127.0.0.1:{{ infisical_port }}/api/v1/admin/config"
+    method: PATCH
+    headers:
+      Authorization: "Bearer {{ infisical_admin_identity_token }}"
+      Content-Type: "application/json"
+    body_format: json
+    body:
+      allowSignUp: "{{ not (infisical_invite_only | default(true) | bool) }}"
+      enabledLoginMethods: "{{ infisical_enabled_login_methods }}"
+      defaultAuthOrgId: "{{ infisical_active_org_id if (infisical_active_org_id | length > 0) else omit }}"
+    status_code:
+      - 200
+  register: infisical_admin_config_resp
+  when:
+    - infisical_admin_identity_token is defined
+    - infisical_admin_identity_token | length > 0
+  tags:
+    - infisical
+
+- name: Update persisted Infisical bootstrap file with current org details
+  ansible.builtin.copy:
+    dest: /srv/admin/secrets/infisical_admin_bootstrap.json
+    content: "{{ _infisical_bootstrap_data | combine({'organization': {'id': infisical_active_org_id, 'name': infisical_org_name, 'slug': infisical_org_slug}}, recursive=True) | to_nice_json }}"
+    owner: "{{ host_admin_user | default('ruslan') }}"
+    group: sudo
+    mode: "0600"
+  delegate_to: localhost
+  when:
+    - infisical_active_org_id is defined
+    - infisical_active_org_id | length > 0
+    - (_infisical_bootstrap_data.organization.name | default('')) != infisical_org_name or (_infisical_bootstrap_data.organization.slug | default('')) != infisical_org_slug
+  tags:
+    - infisical

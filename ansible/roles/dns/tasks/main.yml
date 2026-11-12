@@ -1,0 +1,112 @@
+---
+# [impl->req~configuration-ansible~1]
+- name: Ensure legacy PowerDNS containers are stopped and removed
+  ansible.builtin.shell:
+    cmd: docker rm -f core-powerdns core-powerdns-recursor core-powerdns-admin || true
+  changed_when: false
+  tags:
+    - dns
+
+- name: Ensure Technitium DNS directory structure exists
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    owner: ansible
+    group: docker
+    mode: "0755"
+  loop:
+    - "{{ dns_dir }}"
+    - "{{ dns_dir }}/config"
+  tags:
+    - dns
+
+- name: Template Technitium DNS docker-compose.yml
+  ansible.builtin.template:
+    src: docker-compose.yml.j2
+    dest: "{{ dns_dir }}/docker-compose.yml"
+    owner: ansible
+    group: docker
+    mode: "0644"
+  register: dns_compose_file_result
+  tags:
+    - dns
+
+- name: Launch Technitium DNS container
+  ansible.builtin.command:
+    cmd: docker compose up -d --remove-orphans
+    chdir: "{{ dns_dir }}"
+  register: dns_compose_result
+  changed_when: "'Started' in dns_compose_result.stdout or 'Recreated' in dns_compose_result.stdout or 'Pulling' in dns_compose_result.stdout"
+  tags:
+    - dns
+
+- name: Wait for Technitium DNS HTTP service to become responsive
+  ansible.builtin.uri:
+    url: "http://127.0.0.1:{{ dns_http_port }}/api/user/login?user=admin&pass={{ dns_admin_password | urlencode }}"
+    method: POST
+    status_code: [200, 401]
+  register: dns_login_probe
+  until: dns_login_probe.status == 200
+  retries: 30
+  delay: 2
+  tags:
+    - dns
+
+- name: Extract Technitium API session token
+  ansible.builtin.set_fact:
+    dns_token: "{{ dns_login_probe.json.token }}"
+  tags:
+    - dns
+
+- name: Configure upstream recursive forwarders in Technitium
+  ansible.builtin.uri:
+    url: "http://127.0.0.1:{{ dns_http_port }}/api/settings/set?token={{ dns_token }}&forwarders={{ dns_upstream_resolvers | join(',') }}"
+    status_code: 200
+  tags:
+    - dns
+
+- name: Check if primary authoritative zone exists in Technitium
+  ansible.builtin.uri:
+    url: "http://127.0.0.1:{{ dns_http_port }}/api/zones/get?token={{ dns_token }}&zone={{ dns_zone_name }}"
+    status_code: [200, 400, 404]
+  register: dns_zone_check
+  tags:
+    - dns
+
+- name: Create primary authoritative zone in Technitium if absent
+  ansible.builtin.uri:
+    url: "http://127.0.0.1:{{ dns_http_port }}/api/zones/create?token={{ dns_token }}&zone={{ dns_zone_name }}&type=Primary"
+    status_code: [200, 400]
+  when: "dns_zone_check.status != 200 or (dns_zone_check.json.status | default('')) != 'ok'"
+  tags:
+    - dns
+
+- name: Ensure baseline DNS records exist in Technitium
+  ansible.builtin.uri:
+    url: >-
+      http://127.0.0.1:{{ dns_http_port }}/api/zones/records/add?token={{ dns_token }}&domain={{ ((item.name ~ '.' ~ dns_zone_name) if item.name | length > 0 else dns_zone_name) | urlencode }}&zone={{ dns_zone_name | urlencode }}&type={{ item.type }}&ipAddress={{ item.content }}&overwrite=true&ttl=300
+    status_code: [200, 400]
+  loop: "{{ dns_default_records }}"
+  tags:
+    - dns
+
+- name: Configure OpenID Connect Single Sign-On in Technitium
+  ansible.builtin.uri:
+    url: >-
+      http://127.0.0.1:{{ dns_http_port }}/api/admin/sso/set?token={{ dns_token }}&ssoEnabled=true&ssoAuthority={{ dns_oidc_issuer | urlencode }}&ssoClientId={{ dns_oidc_client_id | urlencode }}&ssoClientSecret={{ dns_oidc_client_secret | urlencode }}&ssoMetadataAddress={{ (dns_oidc_issuer ~ '.well-known/openid-configuration') | urlencode }}&ssoAllowSignup=true&ssoAllowSignupOnlyForMappedUsers=true&ssoGroupMap={{ 'admins|Administrators|authentik Admins|Administrators' | urlencode }}
+    status_code: [200, 400]
+  when:
+    - dns_oidc_enabled | default(true) | bool
+    - dns_oidc_client_secret | default('') | length > 0
+  tags:
+    - dns
+    - sso
+
+- name: Verify Technitium authoritative resolution on local port 53
+  ansible.builtin.command:
+    cmd: "dig @127.0.0.1 {{ dns_zone_name }} +short"
+  register: dns_verify_resolution
+  changed_when: false
+  failed_when: dns_verify_resolution.stdout | length == 0
+  tags:
+    - dns

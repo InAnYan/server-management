@@ -1,0 +1,55 @@
+---
+- name: Ensure Authentik directories exist
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    owner: ansible
+    group: docker
+    mode: "0755"
+  loop:
+    - "{{ authentik_dir }}"
+    - "{{ authentik_dir }}/media"
+    - "{{ authentik_dir }}/custom-templates"
+  tags:
+    - authentik
+    - sso
+
+- name: Template Authentik docker-compose.yml
+  ansible.builtin.template:
+    src: docker-compose.yml.j2
+    dest: "{{ authentik_dir }}/docker-compose.yml"
+    owner: ansible
+    group: docker
+    mode: "0644"
+  register: authentik_compose_file_result
+  tags:
+    - authentik
+    - sso
+
+- name: Launch Authentik containers
+  ansible.builtin.command:
+    cmd: docker compose up -d --remove-orphans
+    chdir: "{{ authentik_dir }}"
+  register: authentik_compose_result
+  changed_when: "'Started' in authentik_compose_result.stdout or 'Recreated' in authentik_compose_result.stdout or 'Pulling' in authentik_compose_result.stdout"
+  tags:
+    - authentik
+    - sso
+
+- name: Wait for Authentik server to become healthy
+  ansible.builtin.uri:
+    url: "http://127.0.0.1:{{ authentik_http_port }}/-/health/live/"
+    status_code: 200
+  register: authentik_health
+  until: authentik_health.status == 200
+  retries: 60
+  delay: 5
+  tags:
+    - authentik
+    - sso
+
+- name: Configure Authentik OIDC providers and applications
+  ansible.builtin.include_tasks: setup_providers.yml
+  tags:
+    - authentik
+    - sso

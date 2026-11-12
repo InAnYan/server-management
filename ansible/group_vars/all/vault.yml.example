@@ -1,0 +1,49 @@
+# Example vault file for encrypted credentials.
+# Encrypt this file with: ansible-vault encrypt ansible/group_vars/all/vault.yml
+# Or edit an encrypted file with: ansible-vault edit ansible/group_vars/all/vault.yml
+
+vault_admin_password: "supersecretpassword"
+vault_dns_admin_password: "supersecretdnsadminpassword"
+vault_redis_core_password: "supersecretrediscorepassword"
+vault_redis_dev_password: "supersecretredisdevpassword"
+vault_redis_prod_password: "supersecretredisprodpassword"
+vault_minio_admin_password: "supersecretminioadminpassword"
+vault_api_keys:
+  service_a: "token-here"
+
+# Gitea encrypted environment variables & database credentials
+vault_gitea_admin_password: "supersecretgiteaadminpassword"
+vault_gitea_db_password: "supersecretgiteadbpassword"
+vault_gitea_env:
+  USER_UID: "1000"
+  USER_GID: "1000"
+  GITEA__database__DB_TYPE: "postgres"
+  GITEA__database__HOST: "10.10.2.10:5432"
+  GITEA__database__NAME: "giteadb"
+  GITEA__database__USER: "gitea"
+  GITEA__server__DOMAIN: "git.example.com"
+  GITEA__server__SSH_DOMAIN: "git.example.com"
+  GITEA__server__ROOT_URL: "https://git.example.com/"
+  GITEA__server__SSH_PORT: "22"
+  GITEA__server__SSH_LISTEN_PORT: "22"
+  GITEA__service__DISABLE_REGISTRATION: "true"
+  GITEA__service__REQUIRE_SIGNIN_VIEW: "true"
+  GITEA__repository__DEFAULT_PRIVATE: "private"
+  GITEA__packages__ENABLED: "true"
+  GITEA__actions__ENABLED: "true"
+  GITEA__webhook__ALLOWED_HOST_LIST: "external,loopback,private"
+  GITEA__security__INSTALL_LOCK: "true"
+
+# Utility Bot Account
+vault_gitea_utility_password: "supersecretutilitypassword"
+
+# Infisical encrypted secrets
+vault_infisical_admin_password: "supersecretinfisicaladminpassword"
+vault_infisical_db_password: "supersecretinfisicaldbpassword"
+vault_infisical_encryption_key: "example-key-generate-via-openssl"
+vault_infisical_auth_secret: "example-auth-secret-base64"
+vault_infisical_org_name: "Infrastructure"
+vault_infisical_org_slug: "infrastructure"
+vault_infisical_atlantis_token: "example-infisical-machine-identity-token"
+vault_dev_postgres_gitea_actions_password: "supersecretdevgiteaactionspassword"
+vault_prod_postgres_gitea_actions_password: "supersecretprodgiteaactionspassword"

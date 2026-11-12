@@ -1,0 +1,48 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ansible/ansible-lint/main/src/ansiblelint/schemas/ansible.json
+---
+# [impl->req~centralized-logging~1]
+# [impl->req~logging-ui-private-authentication-required~1]
+- name: Ensure logger service directories exist
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+  loop:
+    - "{{ logger_dir }}"
+    - "{{ logger_dir }}/loki-data"
+    - "{{ logger_dir }}/grafana-data"
+    - "{{ logger_dir }}/grafana/provisioning/datasources"
+
+- name: Deploy Loki configuration
+  ansible.builtin.template:
+    src: loki-config.yml.j2
+    dest: "{{ logger_dir }}/loki-config.yml"
+    owner: root
+    group: root
+    mode: "0644"
+  notify: Restart logger services
+
+- name: Deploy Grafana datasources provisioning configuration
+  ansible.builtin.template:
+    src: datasources.yml.j2
+    dest: "{{ logger_dir }}/grafana/provisioning/datasources/datasources.yml"
+    owner: root
+    group: root
+    mode: "0644"
+  notify: Restart logger services
+
+- name: Deploy Logger Docker Compose configuration
+  ansible.builtin.template:
+    src: docker-compose.yml.j2
+    dest: "{{ logger_dir }}/docker-compose.yml"
+    owner: root
+    group: root
+    mode: "0640"
+  notify: Restart logger services
+
+- name: Start Logger services
+  community.docker.docker_compose_v2:
+    project_src: "{{ logger_dir }}"
+    state: present

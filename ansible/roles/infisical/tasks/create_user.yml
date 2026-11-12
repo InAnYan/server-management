@@ -1,0 +1,25 @@
+---
+# Task to invite or create a user in Infisical
+# [impl->req~app-accounts-ansible~1]
+
+- name: Validate required user parameters
+  ansible.builtin.assert:
+    that:
+      - email is defined and (email | length > 0)
+    fail_msg: "Variable 'email' must be defined and non-empty."
+
+- name: Trigger user signup invitation in Infisical
+  ansible.builtin.uri:
+    url: "http://127.0.0.1:{{ infisical_port }}/api/v1/signup/email/signup"
+    method: POST
+    headers:
+      Content-Type: "application/json"
+    body_format: json
+    body:
+      email: "{{ email }}"
+    status_code:
+      - 200
+      - 201
+      - 400
+  register: infisical_user_invite
+  changed_when: infisical_user_invite.status in [200, 201]

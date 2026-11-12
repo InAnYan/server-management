@@ -1,0 +1,5 @@
+---
+- name: Restart logger services
+  community.docker.docker_compose_v2:
+    project_src: "{{ logger_dir }}"
+    state: restarted

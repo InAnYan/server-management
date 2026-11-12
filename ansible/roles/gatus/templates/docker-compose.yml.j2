@@ -1,0 +1,14 @@
+services:
+{% for instance in gatus_instances %}
+  {{ instance.service_name }}:
+    image: {{ gatus_image }}
+    container_name: {{ instance.container_name }}
+    restart: unless-stopped
+    ports:
+      - "{{ instance.port }}:8080"
+    extra_hosts:
+      - "{{ auth_domain }}:{{ hostvars['core-coord-caddy'].ansible_host | default('10.10.1.10') }}"
+    volumes:
+      - {{ gatus_dir }}/config/{{ instance.name }}:/config
+      - /etc/ssl/certs/ca-certificates.crt:/etc/ssl/certs/ca-certificates.crt:ro
+{% endfor %}

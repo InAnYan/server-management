@@ -1,0 +1,33 @@
+storage:
+  type: sqlite
+  path: /config/data.db
+
+{% if instance.oidc_enabled | bool and (gatus_oidc_client_secret | default('') | length > 0) %}
+security:
+  oidc:
+    issuer-url: "{{ gatus_oidc_issuer_url }}"
+    client-id: "{{ gatus_oidc_client_id }}"
+    client-secret: "{{ gatus_oidc_client_secret }}"
+    redirect-url: "{{ instance.oidc_redirect_url }}"
+    scopes:
+      - openid
+      - profile
+      - email
+{% endif %}
+
+ui:
+  title: "{{ instance.title }}"
+  description: "{{ instance.description }}"
+  header: "{{ instance.header }}"
+
+endpoints:
+{% for ep in instance.endpoints %}
+  - name: "{{ ep.name }}"
+    group: "{{ ep.group }}"
+    url: "{{ ep.url }}"
+    interval: {{ ep.interval }}
+    conditions:
+{% for cond in ep.conditions %}
+      - "{{ cond }}"
+{% endfor %}
+{% endfor %}

@@ -1,0 +1,16 @@
+---
+# Default variables for centralized logger role
+logger_dir: "/opt/logger"
+loki_image: "grafana/loki:3.0.0"
+grafana_image: "grafana/grafana:latest"
+loki_port: 3100
+grafana_port: 3000
+grafana_admin_user: "admin"
+grafana_admin_password: "{{ lookup('file', '/srv/admin/secrets/grafana_admin_password', errors='ignore') | trim }}"
+logs_domain: "logs.{{ dns_zone_name }}"
+loki_retention_period: "14d"
+
+# Single Sign-On (OIDC) configuration
+grafana_oidc_enabled: true
+grafana_oidc_client_id: "grafana"
+grafana_oidc_client_secret: "{{ lookup('file', '/srv/admin/secrets/grafana_oidc_client_secret', errors='ignore') | trim }}"

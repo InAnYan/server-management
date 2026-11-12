@@ -1,0 +1,26 @@
+---
+# Docker Compose definition for Infisical Secret Manager
+# [impl->req~configuration-ansible~1]
+
+services:
+  infisical:
+    image: "{{ infisical_image }}"
+    container_name: "{{ infisical_container_name }}"
+    restart: unless-stopped
+    ports:
+      - "{{ infisical_port }}:8080"
+    environment:
+      - NODE_ENV=production
+      - PORT=8080
+      - SITE_URL=https://{{ infisical_domain }}
+      - ENCRYPTION_KEY={{ lookup('file', '/srv/admin/secrets/infisical_encryption_key', errors='ignore') | trim }}
+      - AUTH_SECRET={{ lookup('file', '/srv/admin/secrets/infisical_auth_secret', errors='ignore') | trim }}
+      - JWT_SECRET={{ lookup('file', '/srv/admin/secrets/infisical_auth_secret', errors='ignore') | trim }}
+      - DB_CONNECTION_URI=postgres://{{ infisical_db_user }}:{{ lookup('file', '/srv/admin/secrets/infisical_db_password', errors='ignore') | trim }}@{{ infisical_db_host }}:{{ infisical_db_port }}/{{ infisical_db_name }}?sslmode=disable
+      - REDIS_URL=redis://:{{ lookup('file', '/srv/admin/secrets/redis_core_password', errors='ignore') | trim }}@{{ infisical_redis_host }}:{{ infisical_redis_port }}
+      - INFISICAL_TELEMETRY_ENABLED=false
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"

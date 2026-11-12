@@ -1,0 +1,4 @@
+---
+# Variables for core database instances
+postgres_container_name: "core-postgres"
+postgres_admin_password: "{{ lookup('file', '/srv/admin/secrets/postgres_admin_password', errors='ignore') | trim }}"

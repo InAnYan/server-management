@@ -1,0 +1,6 @@
+---
+# Default variables for Fluent Bit log forwarding agent
+fluentbit_loki_host: "10.10.1.14"
+fluentbit_loki_port: 3100
+fluentbit_flush_seconds: 1
+fluentbit_poll_seconds: 1

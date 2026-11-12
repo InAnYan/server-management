@@ -1,0 +1,158 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ansible/ansible-lint/main/src/ansiblelint/schemas/ansible.json
+---
+# Main configuration playbook
+# [impl->req~configuration-ansible~1]
+
+- name: Determine active infrastructure nodes based on feature flags
+  hosts: all
+  gather_facts: false
+  tasks:
+    - name: Classify node availability
+      ansible.builtin.group_by:
+        key: >-
+          {{
+            'active_nodes'
+            if (
+              (inventory_hostname != 'core-app-dns' or (enable_dns | bool)) and
+              (inventory_hostname != 'core-data-redis' or (enable_redis_core | bool)) and
+              (inventory_hostname != 'dev-data-redis' or (enable_redis_dev | bool)) and
+              (inventory_hostname != 'prod-data-redis' or (enable_redis_prod | bool)) and
+              (inventory_hostname != 'core-data-minio' or (enable_minio_core | bool)) and
+              (inventory_hostname != 'dev-data-minio' or (enable_minio_dev | bool)) and
+              (inventory_hostname != 'prod-data-minio' or (enable_minio_prod | bool))
+            )
+            else 'disabled_nodes'
+          }}
+      tags:
+        - always
+
+- name: Bootstrap host environment, SSH keys, and secrets
+  hosts: proxmox
+  become: true
+  roles:
+    - role: bootstrap
+      tags:
+        - bootstrap
+        - secrets
+
+- name: Apply baseline configuration to Proxmox host and VMs
+  hosts: all:&active_nodes
+  become: true
+  roles:
+    - role: common
+      tags:
+        - common
+
+- name: Configure Docker container runtime
+  hosts: docker_hosts:!proxmox:&active_nodes
+  become: true
+  roles:
+    - role: docker
+      tags:
+        - docker
+
+- name: Deploy PostgreSQL database server
+  hosts: postgres_hosts:&active_nodes
+  become: true
+  roles:
+    - role: postgres
+      tags:
+        - postgres
+        - database
+
+- name: Deploy Valkey / Redis in-memory cache server
+  hosts: redis_hosts:&active_nodes
+  become: true
+  roles:
+    - role: redis
+      tags:
+        - redis
+        - cache
+
+- name: Deploy MinIO S3 object storage server
+  hosts: minio_hosts:&active_nodes
+  become: true
+  roles:
+    - role: minio
+      tags:
+        - minio
+        - s3
+        - storage
+
+- name: Deploy Authentik identity provider & SSO server
+  hosts: core-coord-authentik:&active_nodes
+  become: true
+  roles:
+    - role: authentik
+      tags:
+        - authentik
+        - sso
+
+- name: Deploy Technitium authoritative DNS server & Admin web console
+  hosts: core-app-dns:&active_nodes
+  become: true
+  roles:
+    - role: dns
+      tags:
+        - dns
+
+- name: Deploy Gatus monitoring service
+  hosts: core-coord-gatus:&active_nodes
+  become: true
+  roles:
+    - role: gatus
+      tags:
+        - gatus
+        - monitoring
+
+- name: Deploy Gitea Git service
+  hosts: core-coord-gitea:&active_nodes
+  become: true
+  roles:
+    - role: gitea
+      tags:
+        - gitea
+        - git
+
+- name: Deploy Infisical secret management service
+  hosts: core-coord-infisical:&active_nodes
+  become: true
+  roles:
+    - role: infisical
+      tags:
+        - infisical
+
+- name: Deploy Centralized Logging service (Loki & Grafana)
+  hosts: core-coord-logger:&active_nodes
+  become: true
+  roles:
+    - role: logger
+      tags:
+        - logger
+        - logging
+
+- name: Deploy Caddy reverse proxy
+  hosts: core-coord-caddy:&active_nodes
+  become: true
+  roles:
+    - role: caddy
+      tags:
+        - caddy
+
+- name: Deploy Fluent Bit log shipper to all nodes
+  hosts: all:&active_nodes
+  become: true
+  roles:
+    - role: fluentbit
+      tags:
+        - fluentbit
+        - logging
+
+- name: Configure Proxmox host port forwarding
+  hosts: proxmox
+  become: true
+  roles:
+    - role: host_port_forward
+      tags:
+        - host_port_forward
+        - networking

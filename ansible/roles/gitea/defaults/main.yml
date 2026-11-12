@@ -1,0 +1,82 @@
+---
+# Gitea service defaults
+gitea_dir: "/opt/gitea"
+gitea_image: "gitea/gitea:latest"
+gitea_http_port: 3000
+gitea_ssh_port: 2222
+gitea_public_ssh_port: 22
+gitea_domain: "git.{{ dns_zone_name }}"
+gitea_admin_user: "giteaadmin"
+gitea_admin_email: "admin@{{ dns_zone_name }}"
+gitea_admin_password: "{{ lookup('file', '/srv/admin/secrets/gitea_admin_password', errors='ignore') | trim }}"
+
+gitea_db_host: "10.10.2.10:5432"
+gitea_db_name: "giteadb"
+gitea_db_user: "gitea"
+gitea_db_password: "{{ lookup('file', '/srv/admin/secrets/gitea_db_password', errors='ignore') | trim }}"
+
+# Base configuration dictionary
+# [impl->req~git-service-private-authentication-required~1]
+gitea_default_env:
+  USER_UID: "1000"
+  USER_GID: "1000"
+  GITEA__database__DB_TYPE: "postgres"
+  GITEA__database__HOST: "{{ gitea_db_host }}"
+  GITEA__database__NAME: "{{ gitea_db_name }}"
+  GITEA__database__USER: "{{ gitea_db_user }}"
+  GITEA__database__PASSWD: "{{ gitea_db_password }}"
+  GITEA__database__SSL_MODE: "disable"
+  GITEA__server__ROOT_URL: "https://{{ gitea_domain }}/"
+  GITEA__server__DOMAIN: "{{ gitea_domain }}"
+  GITEA__server__SSH_DOMAIN: "{{ gitea_domain }}"
+  GITEA__server__SSH_PORT: "{{ gitea_public_ssh_port }}"
+  GITEA__server__SSH_LISTEN_PORT: "22"
+  GITEA__service__DISABLE_REGISTRATION: "true"
+  GITEA__service__ALLOW_ONLY_EXTERNAL_REGISTRATION: "true"
+  GITEA__service__REQUIRE_SIGNIN_VIEW: "true"
+  GITEA__oauth2_client__ENABLE_AUTO_REGISTRATION: "true"
+  GITEA__oauth2_client__ACCOUNT_LINKING: "auto"
+  GITEA__oauth2_client__USERNAME: "preferred_username"
+  GITEA__repository__DEFAULT_PRIVATE: "private"
+  GITEA__packages__ENABLED: "true"
+  GITEA__actions__ENABLED: "true"
+  GITEA__webhook__ALLOWED_HOST_LIST: "external,loopback,private"
+  GITEA__security__INSTALL_LOCK: "true"
+
+# Platform services feature flags
+enable_gitea_actions: true
+enable_atlantis: true
+
+# Single Sign-On (OIDC) configuration
+gitea_oidc_enabled: true
+gitea_oidc_client_id: "gitea"
+gitea_oidc_client_secret: "{{ lookup('file', '/srv/admin/secrets/gitea_oidc_client_secret', errors='ignore') | trim }}"
+gitea_oidc_discover_url: "https://{{ auth_domain }}/application/o/gitea/.well-known/openid-configuration"
+
+# Utility Bot Account (Docker Registry / CI access)
+gitea_utility_user: "utility"
+gitea_utility_email: "utility@{{ gitea_domain }}"
+gitea_utility_password: "{{ lookup('file', '/srv/admin/secrets/gitea_utility_password', errors='ignore') | trim }}"
+gitea_utility_token: "{{ lookup('file', '/srv/admin/secrets/gitea_utility_token', errors='ignore') | trim }}"
+gitea_utility_token_scopes: "all"
+
+# Atlantis Bot Account (GitOps VCS integration)
+gitea_atlantis_user: "atlantis"
+gitea_atlantis_email: "atlantis@{{ gitea_domain }}"
+gitea_atlantis_token: "{{ lookup('file', '/srv/admin/secrets/atlantis_gitea_token', errors='ignore') | trim }}"
+
+# Gitea Act Runner
+act_runner_image: "gitea/act_runner:latest"
+gitea_runner_token: "{{ lookup('file', '/srv/admin/secrets/gitea_runner_token', errors='ignore') | trim }}"
+
+# Atlantis Bot
+atlantis_image: "ghcr.io/runatlantis/atlantis:latest"
+atlantis_port: 4141
+atlantis_default_tf_version: "1.8.8"
+atlantis_webhook_secret: "{{ lookup('file', '/srv/admin/secrets/atlantis_webhook_secret', errors='ignore') | trim }}"
+atlantis_repo_allowlist: "*"
+atlantis_proxmox_api_token: "{{ lookup('file', '/srv/admin/secrets/atlantis_proxmox_token', errors='ignore') | trim }}"
+atlantis_proxmox_endpoint: "https://10.10.1.1:8006/"
+
+# Vault or secrets overrides
+gitea_custom_env: "{{ vault_gitea_env | default(gitea_env | default({})) }}"

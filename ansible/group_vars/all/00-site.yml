@@ -1,0 +1,28 @@
+---
+# Site-specific configuration (customizable per environment/fork)
+
+# System Timezone & Administrator
+system_timezone: "UTC"
+host_admin_user: "ruslan"
+pve_node_name: "server-1"
+
+# Primary Domain & Public Access
+dns_zone_name: "example.com"
+server_public_ip: "127.0.0.1"
+
+# Feature Flags
+# [impl->req~feature-flags-optional-services~1]
+enable_dns: true
+enable_redis_core: true
+enable_redis_dev: false
+enable_redis_prod: false
+enable_minio_core: false
+enable_minio_dev: false
+enable_minio_prod: false
+
+# Infisical Organization & Admin defaults
+infisical_org_name: "Default"
+infisical_org_slug: "default"
+infisical_admin_email: "popov_r@365.dnu.edu.ua"
+infisical_admin_first_name: "Ruslan"
+infisical_admin_last_name: "Popov"

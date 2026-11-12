@@ -1,0 +1,45 @@
+services:
+  server:
+    image: {{ authentik_image }}
+    container_name: core-authentik-server
+    restart: unless-stopped
+    command: server
+    environment:
+      AUTHENTIK_SECRET_KEY: "{{ authentik_secret_key }}"
+      AUTHENTIK_POSTGRESQL__HOST: "{{ authentik_postgres_host }}"
+      AUTHENTIK_POSTGRESQL__PORT: "{{ authentik_postgres_port }}"
+      AUTHENTIK_POSTGRESQL__USER: "{{ authentik_postgres_user }}"
+      AUTHENTIK_POSTGRESQL__NAME: "{{ authentik_postgres_db }}"
+      AUTHENTIK_POSTGRESQL__PASSWORD: "{{ authentik_postgres_password }}"
+      AUTHENTIK_REDIS__HOST: "{{ authentik_redis_host }}"
+      AUTHENTIK_REDIS__PASSWORD: "{{ authentik_redis_password }}"
+      AUTHENTIK_BOOTSTRAP_TOKEN: "{{ authentik_bootstrap_token }}"
+      AUTHENTIK_BOOTSTRAP_PASSWORD: "{{ authentik_bootstrap_password }}"
+      AUTHENTIK_BOOTSTRAP_EMAIL: "{{ authentik_bootstrap_email }}"
+    volumes:
+      - {{ authentik_dir }}/media:/media
+      - {{ authentik_dir }}/custom-templates:/templates
+    ports:
+      - "{{ authentik_http_port }}:9000"
+      - "{{ authentik_https_port }}:9443"
+
+  worker:
+    image: {{ authentik_image }}
+    container_name: core-authentik-worker
+    restart: unless-stopped
+    command: worker
+    environment:
+      AUTHENTIK_SECRET_KEY: "{{ authentik_secret_key }}"
+      AUTHENTIK_POSTGRESQL__HOST: "{{ authentik_postgres_host }}"
+      AUTHENTIK_POSTGRESQL__PORT: "{{ authentik_postgres_port }}"
+      AUTHENTIK_POSTGRESQL__USER: "{{ authentik_postgres_user }}"
+      AUTHENTIK_POSTGRESQL__NAME: "{{ authentik_postgres_db }}"
+      AUTHENTIK_POSTGRESQL__PASSWORD: "{{ authentik_postgres_password }}"
+      AUTHENTIK_REDIS__HOST: "{{ authentik_redis_host }}"
+      AUTHENTIK_REDIS__PASSWORD: "{{ authentik_redis_password }}"
+      AUTHENTIK_BOOTSTRAP_TOKEN: "{{ authentik_bootstrap_token }}"
+    user: root
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - {{ authentik_dir }}/media:/media
+      - {{ authentik_dir }}/custom-templates:/templates

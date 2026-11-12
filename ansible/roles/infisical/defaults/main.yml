@@ -1,0 +1,32 @@
+---
+# Default variables for Infisical role
+infisical_dir: /opt/infisical
+infisical_image: "infisical/infisical:latest"
+infisical_port: 8080
+infisical_container_name: core-infisical
+
+# Backend database settings
+infisical_db_host: "10.10.2.10"
+infisical_db_port: 5432
+infisical_db_name: "infisical"
+infisical_db_user: "infisical"
+
+# Cache / Queue settings
+infisical_redis_host: "10.10.2.11"
+infisical_redis_port: 6379
+
+# Admin & bootstrap settings
+infisical_org_name: "Default"
+infisical_org_slug: "default"
+infisical_admin_email: "popov_r@365.dnu.edu.ua"
+infisical_admin_first_name: "Ruslan"
+infisical_admin_last_name: "Popov"
+infisical_invite_only: true
+infisical_enabled_login_methods:
+  - email
+  - google
+  - github
+  - gitlab
+  - saml
+  - ldap
+  - oidc

@@ -1,0 +1,28 @@
+# Docker Compose definition for Test App service
+services:
+  app:
+    image: ${IMAGE_NAME:-git.example.com/test/test-app}:${IMAGE_TAG:-latest}
+    container_name: test-app
+    restart: unless-stopped
+    environment:
+      - APP_ENV=${APP_ENV:-development}
+      - PORT=8000
+      - DB_HOST=${DB_HOST:-10.20.2.10}
+      - DB_PORT=${DB_PORT:-5432}
+      - DB_NAME=${DB_NAME:-test_app}
+      - DB_USER=${DB_USER:-test_app_user}
+      - POSTGRES_PASSWORD_FILE=/run/secrets/postgres_password
+    secrets:
+      - postgres_password
+    ports:
+      - "${HOST_PORT:-80}:8000"
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/healthz')\" || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 5s
+
+secrets:
+  postgres_password:
+    file: /dev/shm/test-app/postgres_password

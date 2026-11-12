@@ -1,0 +1,133 @@
+---
+gatus_dir: "/opt/gatus"
+gatus_image: "twinproduction/gatus:latest"
+
+# Shared OIDC SSO Configuration for protected Gatus dashboards
+gatus_oidc_issuer_url: "https://{{ auth_domain }}/application/o/gatus/"
+gatus_oidc_client_id: "gatus"
+gatus_oidc_client_secret: "{{ lookup('file', '/srv/admin/secrets/gatus_oidc_client_secret', errors='ignore') | trim }}"
+
+# Production Workload Endpoints (Public)
+gatus_prod_endpoints:
+  - name: "Test App (Production)"
+    group: "Production Applications"
+    url: "http://10.32.1.10:80/"
+    interval: 30s
+    conditions:
+      - "[STATUS] == 200"
+
+# Development Workload Endpoints (SSO Protected)
+gatus_dev_endpoints:
+  - name: "Test App (Development)"
+    group: "Development Applications"
+    url: "http://10.21.1.10:80/"
+    interval: 30s
+    conditions:
+      - "[STATUS] == 200"
+
+# Core Infrastructure & Database Endpoints (SSO Protected)
+gatus_internal_endpoints:
+  - name: "Authentik Identity Provider"
+    group: "Core Platform Services"
+    url: "http://10.10.1.15:9000/-/health/live/"
+    interval: 30s
+    conditions:
+      - "[STATUS] == 200"
+  - name: "Gitea Git Platform"
+    group: "Core Platform Services"
+    url: "http://10.10.1.12:3000/api/healthz"
+    interval: 30s
+    conditions:
+      - "[STATUS] == 200"
+  - name: "Infisical Secret Vault"
+    group: "Core Platform Services"
+    url: "http://10.10.1.13:8080/api/status"
+    interval: 30s
+    conditions:
+      - "[STATUS] == 200"
+  - name: "Technitium DNS Console"
+    group: "Core Platform Services"
+    url: "http://10.11.1.10:80/"
+    interval: 30s
+    conditions:
+      - "[STATUS] == any(200, 302)"
+  - name: "Grafana Log Dashboard"
+    group: "Core Platform Services"
+    url: "http://10.10.1.14:3000/api/health"
+    interval: 30s
+    conditions:
+      - "[STATUS] == 200"
+  - name: "Caddy Ingress Proxy"
+    group: "Infrastructure Services"
+    url: "http://10.10.1.10:80"
+    interval: 30s
+    conditions:
+      - "[STATUS] == any(200, 308, 404)"
+  - name: "Technitium DNS Server"
+    group: "Infrastructure Services"
+    url: "tcp://10.11.1.10:53"
+    interval: 30s
+    conditions:
+      - "[CONNECTED] == true"
+  - name: "Core PostgreSQL Database"
+    group: "Core Databases & Cache"
+    url: "tcp://10.10.2.10:5432"
+    interval: 30s
+    conditions:
+      - "[CONNECTED] == true"
+  - name: "Core Valkey / Redis Cache"
+    group: "Core Databases & Cache"
+    url: "tcp://10.10.2.11:6379"
+    interval: 30s
+    conditions:
+      - "[CONNECTED] == true"
+  - name: "Dev PostgreSQL Database"
+    group: "Development Databases"
+    url: "tcp://10.20.2.10:5432"
+    interval: 30s
+    conditions:
+      - "[CONNECTED] == true"
+  - name: "Prod PostgreSQL Database"
+    group: "Production Databases"
+    url: "tcp://10.30.2.10:5432"
+    interval: 30s
+    conditions:
+      - "[CONNECTED] == true"
+
+# Multi-instance definitions on core-coord-gatus
+gatus_instances:
+  - name: "prod"
+    service_name: "gatus-prod"
+    container_name: "core-gatus-prod"
+    port: 80
+    domain: "{{ status_domain }}"
+    title: "Production Status | {{ dns_zone_name }}"
+    header: "Production Applications Status"
+    description: "Real-time health monitoring of production workload applications"
+    oidc_enabled: false
+    oidc_redirect_url: "https://{{ status_domain }}/authorization-code/callback"
+    endpoints: "{{ gatus_prod_endpoints }}"
+
+  - name: "dev"
+    service_name: "gatus-dev"
+    container_name: "core-gatus-dev"
+    port: 8081
+    domain: "{{ status_dev_domain }}"
+    title: "Development Status | {{ dns_zone_name }}"
+    header: "Development Applications Status"
+    description: "Real-time health monitoring of development workload applications"
+    oidc_enabled: true
+    oidc_redirect_url: "https://{{ status_dev_domain }}/authorization-code/callback"
+    endpoints: "{{ gatus_dev_endpoints }}"
+
+  - name: "internal"
+    service_name: "gatus-internal"
+    container_name: "core-gatus-internal"
+    port: 8082
+    domain: "{{ status_internal_domain }}"
+    title: "Internal Infrastructure Status | {{ dns_zone_name }}"
+    header: "Core Infrastructure & Services Status"
+    description: "Real-time health monitoring of core coordinators, platforms, and databases"
+    oidc_enabled: true
+    oidc_redirect_url: "https://{{ status_internal_domain }}/authorization-code/callback"
+    endpoints: "{{ gatus_internal_endpoints }}"

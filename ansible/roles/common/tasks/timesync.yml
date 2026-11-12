@@ -1,0 +1,46 @@
+---
+# [impl->req~vm-time-synchronization~1]
+- name: Install chrony NTP client
+  ansible.builtin.apt:
+    name: chrony
+    state: present
+    update_cache: true
+    cache_valid_time: 3600
+
+- name: Ensure chrony configuration drop-in directory exists
+  ansible.builtin.file:
+    path: /etc/chrony/conf.d
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+
+- name: Allow NTP queries from internal SDN subnets on Proxmox host
+  ansible.builtin.copy:
+    dest: /etc/chrony/conf.d/sdn-subnets.conf
+    content: |
+      # Managed by Ansible - allow VM subnets to query host for NTP
+      allow 10.0.0.0/8
+    owner: root
+    group: root
+    mode: "0644"
+  notify: Restart chrony
+  when: inventory_hostname in groups['proxmox'] | default([])
+
+- name: Configure host gateway as internal NTP source on VMs
+  ansible.builtin.copy:
+    dest: /etc/chrony/conf.d/gateway-ntp.conf
+    content: |
+      # Managed by Ansible - sync with Proxmox host gateway
+      server {{ ansible_default_ipv4.gateway | default('10.10.1.1') }} iburst
+    owner: root
+    group: root
+    mode: "0644"
+  notify: Restart chrony
+  when: inventory_hostname not in groups['proxmox'] | default([])
+
+- name: Ensure chrony service is enabled and started
+  ansible.builtin.systemd:
+    name: chrony
+    state: started
+    enabled: true

@@ -1,0 +1,202 @@
+---
+# Bootstrap host environment, SSH keys, and service secrets
+
+- name: Ensure administration secrets directory exists
+  ansible.builtin.file:
+    path: /srv/admin/secrets
+    state: directory
+    owner: "{{ host_admin_user | default('ruslan') }}"
+    group: sudo
+    mode: "0700"
+
+- name: Auto-generate Ansible automation SSH keypair if missing
+  ansible.builtin.command:
+    cmd: ssh-keygen -q -t ed25519 -N "" -C "ansible-automation" -f /srv/admin/secrets/id_ansible
+    creates: /srv/admin/secrets/id_ansible
+
+- name: Auto-generate Admin operator SSH keypair if missing
+  ansible.builtin.command:
+    cmd: ssh-keygen -q -t ed25519 -N "" -C "admin-operator" -f /srv/admin/secrets/id_admin
+    creates: /srv/admin/secrets/id_admin
+
+- name: Ensure correct permissions on SSH key files
+  ansible.builtin.file:
+    path: "/srv/admin/secrets/{{ item.file }}"
+    owner: "{{ host_admin_user | default('ruslan') }}"
+    group: sudo
+    mode: "{{ item.mode }}"
+  loop:
+    - { file: "id_ansible", mode: "0600" }
+    - { file: "id_ansible.pub", mode: "0644" }
+    - { file: "id_admin", mode: "0600" }
+    - { file: "id_admin.pub", mode: "0644" }
+
+- name: Ensure legacy /srv/secrets path is absent
+  ansible.builtin.file:
+    path: /srv/secrets
+    state: absent
+
+- name: Auto-generate administrative credentials if missing
+  ansible.builtin.copy:
+    dest: "/srv/admin/secrets/{{ item }}"
+    content: "{{ lookup('password', '/srv/admin/secrets/' ~ item ~ ' length=32 chars=ascii_letters,digits') }}"
+    owner: "{{ host_admin_user | default('ruslan') }}"
+    group: sudo
+    mode: "0600"
+    force: false
+  loop:
+    - postgres_admin_password
+    - dev_postgres_admin_password
+    - prod_postgres_admin_password
+    - gitea_admin_password
+    - gitea_db_password
+    - redis_core_password
+    - redis_dev_password
+    - redis_prod_password
+    - minio_admin_password
+    - atlantis_webhook_secret
+    - gitea_utility_password
+    - infisical_admin_password
+    - infisical_db_password
+    - dev_postgres_gitea_actions_password
+    - prod_postgres_gitea_actions_password
+    - grafana_admin_password
+    - powerdns_db_password
+    - powerdns_api_key
+    - powerdns_admin_secret_key
+    - dns_admin_password
+    - dns_oidc_client_secret
+    - authentik_secret_key
+    - authentik_db_password
+    - authentik_bootstrap_token
+    - authentik_admin_password
+    - gitea_oidc_client_secret
+    - grafana_oidc_client_secret
+    - powerdns_oidc_client_secret
+    - gatus_oidc_client_secret
+    - proxmox_oidc_client_secret
+
+- name: Auto-generate Infisical cryptographic secrets if missing
+  ansible.builtin.shell:
+    cmd: |
+      if [ ! -f /srv/admin/secrets/infisical_encryption_key ]; then
+        openssl rand -hex 16 | tr -d '\n' > /srv/admin/secrets/infisical_encryption_key
+        chmod 0600 /srv/admin/secrets/infisical_encryption_key
+        chown {{ host_admin_user | default('ruslan') }}:sudo /srv/admin/secrets/infisical_encryption_key
+      fi
+      if [ ! -f /srv/admin/secrets/infisical_auth_secret ]; then
+        openssl rand -base64 32 | tr -d '\n' > /srv/admin/secrets/infisical_auth_secret
+        chmod 0600 /srv/admin/secrets/infisical_auth_secret
+        chown {{ host_admin_user | default('ruslan') }}:sudo /srv/admin/secrets/infisical_auth_secret
+      fi
+    creates: /srv/admin/secrets/infisical_encryption_key
+
+- name: Check if Atlantis Proxmox API token exists
+  ansible.builtin.stat:
+    path: /srv/admin/secrets/atlantis_proxmox_token
+  register: atlantis_pve_token_file
+
+# [impl->req~gitops-api-permissions-minimal~1]
+- name: Provision scoped Proxmox VE API token for Atlantis GitOps
+  when: not atlantis_pve_token_file.stat.exists
+  block:
+    - name: Ensure atlantis-prov@pve user exists in Proxmox
+      ansible.builtin.command:
+        cmd: pveum user add atlantis-prov@pve -comment "Atlantis GitOps Automation"
+      failed_when: false
+
+    - name: Ensure stale Atlantis Proxmox API token is removed if regenerating
+      ansible.builtin.command:
+        cmd: pvesh delete /access/users/atlantis-prov@pve/token/tofu
+      failed_when: false
+
+    - name: Generate Proxmox VE API token for Atlantis
+      ansible.builtin.command:
+        cmd: pvesh create /access/users/atlantis-prov@pve/token/tofu --privsep 0 --output-format json
+      register: pve_token_out
+
+    - name: Store Atlantis Proxmox API token
+      ansible.builtin.copy:
+        dest: /srv/admin/secrets/atlantis_proxmox_token
+        content: "atlantis-prov@pve!tofu={{ (pve_token_out.stdout | from_json).value }}"
+        owner: "{{ host_admin_user | default('ruslan') }}"
+        group: sudo
+        mode: "0600"
+      when:
+        - pve_token_out.rc == 0
+        - pve_token_out.stdout is defined
+
+    - name: Configure scoped ACL permissions for Atlantis token
+      ansible.builtin.command:
+        cmd: "pveum acl modify {{ item.path }} -user atlantis-prov@pve -token 'atlantis-prov@pve!tofu' -role {{ item.role }}"
+      loop:
+        - { path: "/vms", role: "PVEVMAdmin" }
+        - { path: "/pool/dev-app", role: "PVEVMAdmin" }
+        - { path: "/pool/dev-app", role: "PVEPoolAdmin" }
+        - { path: "/pool/prod-app", role: "PVEVMAdmin" }
+        - { path: "/pool/prod-app", role: "PVEPoolAdmin" }
+        - { path: "/storage/local", role: "PVEDatastoreUser" }
+        - { path: "/storage/local-lvm", role: "PVEDatastoreUser" }
+        - { path: "/sdn", role: "PVESDNUser" }
+      failed_when: false
+
+- name: Ensure internal HTTP proxy (tinyproxy) is installed on host for isolated database updates
+  ansible.builtin.apt:
+    name: tinyproxy
+    state: present
+    update_cache: true
+    cache_valid_time: 3600
+
+- name: Configure tinyproxy to allow connections from internal SDN subnets (10.0.0.0/8)
+  ansible.builtin.lineinfile:
+    path: /etc/tinyproxy/tinyproxy.conf
+    line: "Allow 10.0.0.0/8"
+    insertafter: "^Allow 127.0.0.1"
+    state: present
+  register: tinyproxy_config
+
+- name: Ensure tinyproxy service is enabled and running
+  ansible.builtin.systemd:
+    name: tinyproxy
+    state: "{{ 'restarted' if tinyproxy_config.changed else 'started' }}"
+    enabled: true
+
+# [impl->req~app-accounts-ansible~1]
+- name: Check if Authentik OpenID realm is configured in Proxmox VE
+  ansible.builtin.command:
+    cmd: pveum realm list
+  register: pve_realms_query
+  changed_when: false
+  tags:
+    - bootstrap
+    - sso
+
+- name: Configure Authentik OpenID realm in Proxmox VE
+  ansible.builtin.command:
+    cmd: >-
+      pveum realm add authentik --type openid
+      --issuer-url https://{{ auth_domain }}/application/o/proxmox/
+      --client-id proxmox
+      --client-key {{ lookup('file', '/srv/admin/secrets/proxmox_oidc_client_secret', errors='ignore') | trim }}
+      --username-claim preferred_username
+      --autocreate 1
+      --comment "Authentik Central Single Sign-On"
+  when:
+    - "'authentik' not in pve_realms_query.stdout"
+    - (lookup('file', '/srv/admin/secrets/proxmox_oidc_client_secret', errors='ignore') | trim | length) > 0
+  tags:
+    - bootstrap
+    - sso
+
+- name: Ensure admins group and permissions exist in Proxmox VE
+  ansible.builtin.command:
+    cmd: "{{ item }}"
+  loop:
+    - "pveum group add admins --comment 'Platform Administrators'"
+    - "pveum acl modify / -roles Administrator -groups admins"
+    - "pveum user add {{ host_admin_user | default('ruslan') }}@authentik --groups admins --comment 'SSO Administrator'"
+    - "pveum user modify {{ host_admin_user | default('ruslan') }}@authentik --groups admins"
+  failed_when: false
+  tags:
+    - bootstrap
+    - sso

@@ -1,0 +1,124 @@
+---
+- name: Determine if node has direct internet egress
+  ansible.builtin.set_fact:
+    node_has_internet: "{{ inventory_hostname not in (groups['core_databases'] | default([]) + groups['dev_databases'] | default([]) + groups['prod_databases'] | default([])) }}"
+  tags:
+    - always
+
+- name: Ensure internal gateway DNS resolver is configured on VMs
+  ansible.builtin.copy:
+    dest: /etc/resolv.conf
+    content: |
+      nameserver 1.1.1.1
+      nameserver 8.8.8.8
+      nameserver {{ ansible_default_ipv4.gateway }}
+      options timeout:2 attempts:3
+    owner: root
+    group: root
+    mode: "0644"
+  when: inventory_hostname not in groups['proxmox'] | default([])
+  tags:
+    - always
+    - common
+    - dns
+
+- name: Ensure platform service domains resolve to Caddy ingress in /etc/hosts
+  ansible.builtin.lineinfile:
+    path: /etc/hosts
+    line: "{{ hostvars['core-coord-caddy'].ansible_host | default('10.10.1.10') }} {{ auth_domain }} {{ gitea_domain }} {{ logs_domain }} {{ dns_domain }} {{ status_domain }} {{ status_dev_domain }} {{ status_internal_domain }}"
+    state: present
+  tags:
+    - always
+    - common
+    - hosts
+
+- name: Deploy internal Caddy root CA certificate to trust store
+  ansible.builtin.copy:
+    content: "{{ lookup('file', '/srv/admin/secrets/caddy_root.crt', errors='ignore') }}"
+    dest: /usr/local/share/ca-certificates/caddy-root.crt
+    owner: root
+    group: root
+    mode: "0644"
+  register: caddy_ca_cert
+  when: (lookup('file', '/srv/admin/secrets/caddy_root.crt', errors='ignore') | trim | length) > 0
+  tags:
+    - always
+    - common
+    - certificates
+
+- name: Update system CA certificates trust store
+  ansible.builtin.command:
+    cmd: update-ca-certificates
+  when: caddy_ca_cert.changed | default(false)
+  tags:
+    - always
+    - common
+    - certificates
+
+- name: Configure APT proxy for nodes without direct internet egress
+  ansible.builtin.copy:
+    dest: /etc/apt/apt.conf.d/01proxy
+    content: |
+      Acquire::http::Proxy "http://{{ ansible_default_ipv4.gateway }}:8888";
+      Acquire::https::Proxy "http://{{ ansible_default_ipv4.gateway }}:8888";
+    owner: root
+    group: root
+    mode: "0644"
+  when:
+    - inventory_hostname not in groups['proxmox'] | default([])
+    - not (node_has_internet | default(true) | bool)
+  tags:
+    - always
+    - common
+    - packages
+
+- name: Install baseline system packages
+  ansible.builtin.import_tasks: packages.yml
+  tags:
+    - common
+    - packages
+
+- name: Configure system timezone
+  ansible.builtin.import_tasks: timezone.yml
+  tags:
+    - common
+    - timezone
+
+- name: Configure SSH security and authentication
+  ansible.builtin.import_tasks: ssh.yml
+  tags:
+    - common
+    - ssh
+
+- name: Configure NTP time synchronization
+  ansible.builtin.import_tasks: timesync.yml
+  tags:
+    - common
+    - timesync
+
+- name: Configure persistent systemd journal logging
+  ansible.builtin.import_tasks: journald.yml
+  tags:
+    - common
+    - journald
+
+- name: Configure automatic unattended security upgrades
+  ansible.builtin.import_tasks: unattended_upgrades.yml
+  tags:
+    - common
+    - unattended_upgrades
+
+- name: Configure standard user accounts
+  ansible.builtin.import_tasks: users.yml
+  tags:
+    - common
+    - users
+
+- name: Configure QEMU Guest Agent restrictions
+  ansible.builtin.import_tasks: qemu_agent.yml
+  when:
+    - inventory_hostname not in groups['proxmox'] | default([])
+    - "'qemu-guest-agent' in common_packages"
+  tags:
+    - common
+    - qemu_agent

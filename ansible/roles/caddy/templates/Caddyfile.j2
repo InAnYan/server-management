@@ -1,0 +1,16 @@
+{
+    email {{ caddy_email }}
+}
+
+import /etc/caddy/conf.d/*
+
+{% if dns_zone_name is defined and dns_zone_name %}
+*.{{ dns_zone_name }} {
+    tls internal
+    respond "Not Found" 404
+}
+{% endif %}
+
+:{{ caddy_http_port }} {
+    respond "Not Found" 404
+}

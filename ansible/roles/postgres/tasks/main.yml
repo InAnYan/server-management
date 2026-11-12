@@ -1,0 +1,312 @@
+---
+# PostgreSQL database role tasks
+
+- name: Ensure PostgreSQL base directory exists
+  ansible.builtin.file:
+    path: "{{ postgres_dir }}"
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+  tags:
+    - postgres
+    - database
+
+- name: Ensure PostgreSQL data directory exists
+  ansible.builtin.file:
+    path: "{{ postgres_dir }}/data"
+    state: directory
+    owner: "{{ postgres_uid }}"
+    group: "{{ postgres_gid }}"
+    mode: "0700"
+  tags:
+    - postgres
+    - database
+
+- name: Deploy PostgreSQL Docker Compose configuration
+  ansible.builtin.template:
+    src: docker-compose.yml.j2
+    dest: "{{ postgres_dir }}/docker-compose.yml"
+    owner: root
+    group: root
+    mode: "0600"
+  register: postgres_compose_file_result
+  tags:
+    - postgres
+    - database
+
+- name: Pull and start PostgreSQL container
+  ansible.builtin.command:
+    cmd: docker compose up -d
+    chdir: "{{ postgres_dir }}"
+  register: postgres_compose_result
+  changed_when: "'Started' in postgres_compose_result.stdout or 'Recreated' in postgres_compose_result.stdout or 'Pulling' in postgres_compose_result.stdout"
+  tags:
+    - postgres
+    - database
+
+- name: Wait for PostgreSQL database to be healthy
+  ansible.builtin.command:
+    cmd: docker exec {{ postgres_container_name }} pg_isready -U {{ postgres_admin_user }} -d {{ postgres_db }}
+  register: postgres_ready
+  until: postgres_ready.rc == 0
+  retries: 20
+  delay: 3
+  changed_when: false
+  tags:
+    - postgres
+    - database
+
+- name: Setup or rotate PostgreSQL administrator password
+  ansible.builtin.include_tasks: setup_admin.yml
+
+- name: Ensure Gitea database role exists
+  ansible.builtin.command:
+    cmd: >
+      docker exec -i {{ postgres_container_name }} psql -U {{ postgres_admin_user }} -d {{ postgres_db }} -c "
+      DO $$
+      BEGIN
+        IF NOT EXISTS (SELECT FROM pg_catalog.pg_roles WHERE rolname = '{{ gitea_db_user }}') THEN
+          CREATE ROLE {{ gitea_db_user }} WITH LOGIN PASSWORD '{{ gitea_db_password }}';
+        ELSE
+          ALTER ROLE {{ gitea_db_user }} WITH PASSWORD '{{ gitea_db_password }}';
+        END IF;
+      END
+      $$;
+      "
+  register: postgres_gitea_role
+  changed_when: "'CREATE ROLE' in postgres_gitea_role.stdout or 'ALTER ROLE' in postgres_gitea_role.stdout"
+  when:
+    - inventory_hostname == 'core-data-postgres'
+    - gitea_db_password is defined
+    - gitea_db_password | length > 0
+  tags:
+    - postgres
+    - database
+
+- name: Check if Gitea database exists
+  ansible.builtin.command:
+    cmd: docker exec -i {{ postgres_container_name }} psql -U {{ postgres_admin_user }} -d {{ postgres_db }} -tAc "SELECT 1 FROM pg_database WHERE datname = '{{ gitea_db_name }}';"
+  register: postgres_gitea_db_check
+  changed_when: false
+  when:
+    - inventory_hostname == 'core-data-postgres'
+    - gitea_db_password is defined
+    - gitea_db_password | length > 0
+  tags:
+    - postgres
+    - database
+
+- name: Create Gitea database
+  ansible.builtin.command:
+    cmd: docker exec -i {{ postgres_container_name }} psql -U {{ postgres_admin_user }} -d {{ postgres_db }} -c "CREATE DATABASE {{ gitea_db_name }} OWNER {{ gitea_db_user }};"
+  register: postgres_gitea_db_create
+  when:
+    - inventory_hostname == 'core-data-postgres'
+    - gitea_db_password is defined
+    - gitea_db_password | length > 0
+    - postgres_gitea_db_check.stdout != '1'
+  tags:
+    - postgres
+    - database
+
+- name: Ensure Gitea user permissions on schema public
+  ansible.builtin.command:
+    cmd: >
+      docker exec -i {{ postgres_container_name }} psql -U {{ postgres_admin_user }} -d {{ gitea_db_name }} -c "
+      GRANT ALL ON SCHEMA public TO {{ gitea_db_user }};
+      "
+  register: postgres_gitea_schema
+  changed_when: false
+  when:
+    - inventory_hostname == 'core-data-postgres'
+    - gitea_db_password is defined
+    - gitea_db_password | length > 0
+  tags:
+    - postgres
+    - database
+
+- name: Ensure Infisical database role exists
+  ansible.builtin.command:
+    cmd: >
+      docker exec -i {{ postgres_container_name }} psql -U {{ postgres_admin_user }} -d {{ postgres_db }} -c "
+      DO $$
+      BEGIN
+        IF NOT EXISTS (SELECT FROM pg_catalog.pg_roles WHERE rolname = '{{ infisical_db_user | default('infisical') }}') THEN
+          CREATE ROLE {{ infisical_db_user | default('infisical') }} WITH LOGIN PASSWORD '{{ lookup('file', '/srv/admin/secrets/infisical_db_password', errors='ignore') | trim }}';
+        ELSE
+          ALTER ROLE {{ infisical_db_user | default('infisical') }} WITH PASSWORD '{{ lookup('file', '/srv/admin/secrets/infisical_db_password', errors='ignore') | trim }}';
+        END IF;
+      END
+      $$;
+      "
+  register: postgres_infisical_role
+  changed_when: "'CREATE ROLE' in postgres_infisical_role.stdout or 'ALTER ROLE' in postgres_infisical_role.stdout"
+  when:
+    - inventory_hostname == 'core-data-postgres'
+    - (lookup('file', '/srv/admin/secrets/infisical_db_password', errors='ignore') | trim | length > 0)
+  tags:
+    - postgres
+    - database
+
+- name: Check if Infisical database exists
+  ansible.builtin.command:
+    cmd: docker exec -i {{ postgres_container_name }} psql -U {{ postgres_admin_user }} -d {{ postgres_db }} -tAc "SELECT 1 FROM pg_database WHERE datname = '{{ infisical_db_name | default('infisical') }}';"
+  register: postgres_infisical_db_check
+  changed_when: false
+  when:
+    - inventory_hostname == 'core-data-postgres'
+    - (lookup('file', '/srv/admin/secrets/infisical_db_password', errors='ignore') | trim | length > 0)
+  tags:
+    - postgres
+    - database
+
+- name: Create Infisical database
+  ansible.builtin.command:
+    cmd: docker exec -i {{ postgres_container_name }} psql -U {{ postgres_admin_user }} -d {{ postgres_db }} -c "CREATE DATABASE {{ infisical_db_name | default('infisical') }} OWNER {{ infisical_db_user | default('infisical') }};"
+  register: postgres_infisical_db_create
+  when:
+    - inventory_hostname == 'core-data-postgres'
+    - (lookup('file', '/srv/admin/secrets/infisical_db_password', errors='ignore') | trim | length > 0)
+    - postgres_infisical_db_check.stdout != '1'
+  tags:
+    - postgres
+    - database
+
+- name: Ensure Infisical user permissions on schema public
+  ansible.builtin.command:
+    cmd: >
+      docker exec -i {{ postgres_container_name }} psql -U {{ postgres_admin_user }} -d {{ infisical_db_name | default('infisical') }} -c "
+      GRANT ALL ON SCHEMA public TO {{ infisical_db_user | default('infisical') }};
+      "
+  register: postgres_infisical_schema
+  changed_when: false
+  when:
+    - inventory_hostname == 'core-data-postgres'
+    - (lookup('file', '/srv/admin/secrets/infisical_db_password', errors='ignore') | trim | length > 0)
+  tags:
+    - postgres
+    - database
+
+- name: Ensure PowerDNS database role exists
+  ansible.builtin.command:
+    cmd: >
+      docker exec -i {{ postgres_container_name }} psql -U {{ postgres_admin_user }} -d {{ postgres_db }} -c "
+      DO $$
+      BEGIN
+        IF NOT EXISTS (SELECT FROM pg_catalog.pg_roles WHERE rolname = '{{ powerdns_db_user }}') THEN
+          CREATE ROLE {{ powerdns_db_user }} WITH LOGIN SUPERUSER PASSWORD '{{ powerdns_db_password }}';
+        ELSE
+          ALTER ROLE {{ powerdns_db_user }} WITH SUPERUSER PASSWORD '{{ powerdns_db_password }}';
+        END IF;
+      END
+      $$;
+      "
+  register: postgres_pdns_role
+  changed_when: "'CREATE ROLE' in postgres_pdns_role.stdout or 'ALTER ROLE' in postgres_pdns_role.stdout"
+  when:
+    - inventory_hostname == 'core-data-postgres'
+    - powerdns_db_password is defined
+    - powerdns_db_password | length > 0
+  tags:
+    - postgres
+    - database
+
+- name: Check if PowerDNS databases exist
+  ansible.builtin.command:
+    cmd: docker exec -i {{ postgres_container_name }} psql -U {{ postgres_admin_user }} -d {{ postgres_db }} -tAc "SELECT 1 FROM pg_database WHERE datname = '{{ item }}';"
+  loop:
+    - "{{ powerdns_db_name }}"
+    - "{{ powerdns_admin_db_name }}"
+    - "pdns"
+  register: postgres_pdns_db_check
+  changed_when: false
+  when:
+    - inventory_hostname == 'core-data-postgres'
+    - powerdns_db_password is defined
+    - powerdns_db_password | length > 0
+  tags:
+    - postgres
+    - database
+
+- name: Create PowerDNS databases
+  ansible.builtin.command:
+    cmd: docker exec -i {{ postgres_container_name }} psql -U {{ postgres_admin_user }} -d {{ postgres_db }} -c "CREATE DATABASE {{ item.item }} OWNER {{ powerdns_db_user }};"
+  loop: "{{ postgres_pdns_db_check.results | default([]) }}"
+  when:
+    - inventory_hostname == 'core-data-postgres'
+    - item.stdout is defined and item.stdout != '1'
+  tags:
+    - postgres
+    - database
+
+- name: Ensure Authentik database role exists
+  ansible.builtin.command:
+    cmd: >
+      docker exec -i {{ postgres_container_name }} psql -U {{ postgres_admin_user }} -d {{ postgres_db }} -c "
+      DO $$
+      BEGIN
+        IF NOT EXISTS (SELECT FROM pg_catalog.pg_roles WHERE rolname = '{{ authentik_db_user }}') THEN
+          CREATE ROLE {{ authentik_db_user }} WITH LOGIN SUPERUSER PASSWORD '{{ authentik_db_password }}';
+        ELSE
+          ALTER ROLE {{ authentik_db_user }} WITH SUPERUSER PASSWORD '{{ authentik_db_password }}';
+        END IF;
+      END
+      $$;
+      "
+  register: postgres_authentik_role
+  changed_when: "'CREATE ROLE' in postgres_authentik_role.stdout or 'ALTER ROLE' in postgres_authentik_role.stdout"
+  when:
+    - inventory_hostname == 'core-data-postgres'
+    - authentik_db_password is defined
+    - authentik_db_password | length > 0
+  tags:
+    - postgres
+    - database
+
+- name: Check if Authentik database exists
+  ansible.builtin.command:
+    cmd: docker exec -i {{ postgres_container_name }} psql -U {{ postgres_admin_user }} -d {{ postgres_db }} -tAc "SELECT 1 FROM pg_database WHERE datname = '{{ authentik_db_name }}';"
+  register: postgres_authentik_db_check
+  changed_when: false
+  when:
+    - inventory_hostname == 'core-data-postgres'
+    - authentik_db_password is defined
+    - authentik_db_password | length > 0
+  tags:
+    - postgres
+    - database
+
+- name: Create Authentik database
+  ansible.builtin.command:
+    cmd: docker exec -i {{ postgres_container_name }} psql -U {{ postgres_admin_user }} -d {{ postgres_db }} -c "CREATE DATABASE {{ authentik_db_name }} OWNER {{ authentik_db_user }};"
+  when:
+    - inventory_hostname == 'core-data-postgres'
+    - authentik_db_password is defined
+    - authentik_db_password | length > 0
+    - postgres_authentik_db_check.stdout != '1'
+  tags:
+    - postgres
+    - database
+
+- name: Ensure Gitea Actions automation admin role exists in PostgreSQL
+  ansible.builtin.command:
+    cmd: >
+      docker exec -i {{ postgres_container_name }} psql -U {{ postgres_admin_user }} -d {{ postgres_db }} -c "
+      DO $$
+      BEGIN
+        IF NOT EXISTS (SELECT FROM pg_catalog.pg_roles WHERE rolname = 'gitea_actions') THEN
+          CREATE ROLE gitea_actions WITH LOGIN SUPERUSER CREATEDB CREATEROLE PASSWORD '{{ lookup('file', '/srv/admin/secrets/' ~ ('dev' if inventory_hostname == 'dev-data-postgres' else 'prod') ~ '_postgres_gitea_actions_password', errors='ignore') | trim }}';
+        ELSE
+          ALTER ROLE gitea_actions WITH SUPERUSER CREATEDB CREATEROLE PASSWORD '{{ lookup('file', '/srv/admin/secrets/' ~ ('dev' if inventory_hostname == 'dev-data-postgres' else 'prod') ~ '_postgres_gitea_actions_password', errors='ignore') | trim }}';
+        END IF;
+      END
+      $$;
+      "
+  register: postgres_gitea_actions_role
+  changed_when: "'CREATE ROLE' in postgres_gitea_actions_role.stdout or 'ALTER ROLE' in postgres_gitea_actions_role.stdout"
+  when:
+    - inventory_hostname in ['dev-data-postgres', 'prod-data-postgres']
+  tags:
+    - postgres
+    - database

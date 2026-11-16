@@ -1,0 +1,4 @@
+---
+# Variables for prod database instances
+postgres_container_name: "prod-postgres"
+postgres_admin_password: "{{ lookup('file', '/srv/admin/secrets/prod_postgres_admin_password', errors='ignore') | trim }}"

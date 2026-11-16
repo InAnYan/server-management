@@ -1,0 +1,35 @@
+---
+# Setup or rotate Gitea administrator account
+
+- name: Query existing Gitea users
+  ansible.builtin.command:
+    cmd: docker exec -u git core-gitea gitea admin user list -c /data/gitea/conf/app.ini
+  register: gitea_users_list
+  changed_when: false
+  retries: 5
+  delay: 3
+  until: gitea_users_list.rc == 0
+
+- name: Create Gitea administrator account
+  ansible.builtin.command:
+    cmd: >
+      docker exec -u git core-gitea gitea admin user create
+      --username "{{ gitea_admin_user }}"
+      --password "{{ gitea_admin_password }}"
+      --email "{{ gitea_admin_email }}"
+      --admin
+      --must-change-password=false
+      -c /data/gitea/conf/app.ini
+  register: gitea_admin_create
+  when: "gitea_admin_user not in gitea_users_list.stdout"
+  changed_when: "'successfully created' in gitea_admin_create.stdout or gitea_admin_create.rc == 0"
+
+- name: Synchronize Gitea administrator password
+  ansible.builtin.command:
+    cmd: >
+      docker exec -u git core-gitea gitea admin user change-password
+      --username "{{ gitea_admin_user }}"
+      --password "{{ gitea_admin_password }}"
+      -c /data/gitea/conf/app.ini
+  when: "gitea_admin_user in gitea_users_list.stdout"
+  changed_when: false

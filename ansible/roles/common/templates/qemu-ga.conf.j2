@@ -1,0 +1,11 @@
+# Ansible managed: QEMU Guest Agent configuration
+# [impl->req~qemu-agent-capabilities-restricted~1]
+[general]
+daemon=false
+method=virtio-serial
+path=/dev/virtio-ports/org.qemu.guest_agent.0
+pidfile=/var/run/qemu-ga.pid
+statedir=/var/run
+verbose=false
+retry-path=false
+block-rpcs={{ qemu_ga_block_rpcs | join(',') }}

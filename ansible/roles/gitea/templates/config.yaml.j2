@@ -1,0 +1,17 @@
+log:
+  level: info
+
+runner:
+  file: .runner
+  capacity: 2
+  timeout: 3h
+  insecure: false
+  fetch_timeout: 5s
+  fetch_interval: 2s
+
+container:
+  network: "gitea_default"
+  privileged: true
+  options: "--add-host={{ gitea_domain }}:{{ hostvars['core-coord-caddy'].ansible_host | default('10.10.1.10') }}"
+  valid_volumes:
+    - "/var/run/docker.sock"

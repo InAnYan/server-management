@@ -1,0 +1,25 @@
+# [impl->req~in-ram-container-secrets~1]
+services:
+  minio:
+    image: {{ minio_image }}
+    container_name: {{ inventory_hostname }}
+    restart: unless-stopped
+    command: ["server", "/data", "--console-address", ":9001"]
+    environment:
+      MINIO_ROOT_USER: "{{ minio_root_user }}"
+      MINIO_ROOT_PASSWORD_FILE: /run/secrets/minio_root_password
+{% if 'core' in inventory_hostname and minio_domain is defined %}
+      MINIO_SERVER_URL: "https://{{ minio_domain }}"
+      MINIO_BROWSER_REDIRECT_URL: "https://{{ minio_console_domain }}"
+{% endif %}
+    secrets:
+      - minio_root_password
+    ports:
+      - "{{ minio_api_port }}:9000"
+      - "{{ minio_console_port }}:9001"
+    volumes:
+      - ./data:/data
+
+secrets:
+  minio_root_password:
+    file: /dev/shm/minio/minio_root_password

@@ -1,0 +1,26 @@
+---
+# Configure and harden QEMU Guest Agent
+# [impl->req~qemu-agent-capabilities-restricted~1]
+
+- name: Ensure QEMU configuration directory exists
+  ansible.builtin.file:
+    path: /etc/qemu
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+
+- name: Configure QEMU Guest Agent RPC restrictions
+  ansible.builtin.template:
+    src: qemu-ga.conf.j2
+    dest: /etc/qemu/qemu-ga.conf
+    owner: root
+    group: root
+    mode: "0644"
+  notify: Restart qemu-guest-agent
+
+- name: Ensure qemu-guest-agent service is started and enabled
+  ansible.builtin.systemd:
+    name: qemu-guest-agent
+    state: started
+    enabled: true

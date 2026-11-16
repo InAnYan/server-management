@@ -1,0 +1,92 @@
+name: Build & Continuous Deployment
+
+on:
+  push:
+    branches:
+      - main
+      - prod
+
+jobs:
+  build-and-push:
+    name: Build & Publish Container Image
+    runs-on: ubuntu-latest
+    outputs:
+      env_name: ${{ steps.set_env.outputs.env_name }}
+      env_code: ${{ steps.set_env.outputs.env_code }}
+      image_tag: ${{ steps.set_env.outputs.image_tag }}
+      target_ip: ${{ steps.set_env.outputs.target_ip }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Resolve Environment & Tag
+        id: set_env
+        run: |
+          if [ "${{ github.ref }}" = "refs/heads/prod" ]; then
+            echo "env_name=production" >> $GITHUB_OUTPUT
+            echo "env_code=prod" >> $GITHUB_OUTPUT
+            echo "image_tag=prod" >> $GITHUB_OUTPUT
+            echo "target_ip=10.32.1.10" >> $GITHUB_OUTPUT
+          else
+            echo "env_name=development" >> $GITHUB_OUTPUT
+            echo "env_code=dev" >> $GITHUB_OUTPUT
+            echo "image_tag=dev" >> $GITHUB_OUTPUT
+            echo "target_ip=10.21.1.10" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Install Infisical CLI
+        run: |
+          curl -sSL "https://github.com/Infisical/cli/releases/download/v0.45.6/cli_0.45.6_linux_amd64.tar.gz" | tar -xz -C /usr/local/bin infisical
+
+      - name: Export Secrets from Infisical
+        run: |
+          infisical export --domain="http://10.10.1.13:8080/api" --env="main" --projectId="c97ca56b-5a3b-491c-b79d-0e2453ab2568" --token="${{ secrets.INFISICAL_CICD_TOKEN }}" --format="dotenv-export" --silent > /tmp/cicd.env
+
+      - name: Authenticate to Gitea Container Registry & Build
+        run: |
+          source /tmp/cicd.env
+          echo "$REGISTRY_TOKEN" | docker login "$REGISTRY_DOMAIN" -u "utility" --password-stdin
+          IMAGE_URI="$REGISTRY_DOMAIN/test/test-app:${{ steps.set_env.outputs.image_tag }}"
+          docker build -t "$IMAGE_URI" -t "$REGISTRY_DOMAIN/test/test-app:latest" .
+          docker push "$IMAGE_URI"
+
+  deploy-workload:
+    name: Deploy Workload & Configure Ingress
+    needs: build-and-push
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install Infisical CLI
+        run: |
+          curl -sSL "https://github.com/Infisical/cli/releases/download/v0.45.6/cli_0.45.6_linux_amd64.tar.gz" | tar -xz -C /usr/local/bin infisical
+
+      - name: Export Secrets from Infisical
+        run: |
+          infisical export --domain="http://10.10.1.13:8080/api" --env="main" --projectId="c97ca56b-5a3b-491c-b79d-0e2453ab2568" --token="${{ secrets.INFISICAL_CICD_TOKEN }}" --format="dotenv-export" --silent > /tmp/cicd.env
+          infisical export --domain="http://10.10.1.13:8080/api" --env="${{ needs.build-and-push.outputs.env_code }}" --projectId="6f57e9c7-e040-4006-b685-947566650eb8" --token="${{ secrets.INFISICAL_CICD_TOKEN }}" --format="dotenv-export" --silent > /tmp/app.env
+
+      - name: Configure SSH Private Key
+        run: |
+          source /tmp/cicd.env
+          mkdir -p ~/.ssh
+          echo "$VM_DEPLOY_SSH_KEY" > ~/.ssh/id_ansible
+          chmod 0600 ~/.ssh/id_ansible
+          ssh-keyscan -H 10.10.1.10 10.10.1.11 10.21.1.10 10.32.1.10 >> ~/.ssh/known_hosts || true
+
+      - name: Execute Unified Ansible Deployment
+        run: |
+          source /tmp/cicd.env
+          source /tmp/app.env
+
+          pip install --break-system-packages ansible-core requests
+
+          cd ansible
+          ansible-playbook -i inventory/hosts.ini deploy.yml \
+            -e "target_env=${{ needs.build-and-push.outputs.env_code }}" \
+            -e "app_image_tag=${{ needs.build-and-push.outputs.image_tag }}" \
+            -e "gitea_registry_domain=${REGISTRY_DOMAIN}" \
+            -e "gitea_registry_token=${REGISTRY_TOKEN}" \
+            -e "base_domain=${REGISTRY_DOMAIN#git.}" \
+            -e "app_db_password=${POSTGRES_PASSWORD}"

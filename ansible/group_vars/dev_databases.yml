@@ -1,0 +1,4 @@
+---
+# Variables for dev database instances
+postgres_container_name: "dev-postgres"
+postgres_admin_password: "{{ lookup('file', '/srv/admin/secrets/dev_postgres_admin_password', errors='ignore') | trim }}"

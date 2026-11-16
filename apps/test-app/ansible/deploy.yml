@@ -1,0 +1,240 @@
+---
+# ==============================================================================
+# Play 1: Target VM Application Deployment
+# ==============================================================================
+- name: Deploy Test App container to target VM
+  hosts: "{{ target_env | default('dev') }}"
+  become: true
+  vars:
+    app_name: "test-app"
+    app_dir: "/srv/test-app"
+    registry_domain: "{{ gitea_registry_domain }}"
+    registry_user: "utility"
+    registry_token: "{{ gitea_registry_token }}"
+    image_name: "{{ registry_domain }}/test/test-app"
+    image_tag: "{{ app_image_tag | default('prod' if target_env | default('dev') == 'prod' else 'dev') }}"
+
+  tasks:
+    - name: Ensure application directory exists
+      ansible.builtin.file:
+        path: "{{ app_dir }}"
+        state: directory
+        owner: ansible
+        group: ansible
+        mode: "0755"
+
+    - name: Ensure keyrings directory exists
+      ansible.builtin.file:
+        path: /etc/apt/keyrings
+        state: directory
+        owner: root
+        group: root
+        mode: "0755"
+
+    - name: Download Docker official GPG key
+      ansible.builtin.get_url:
+        url: https://download.docker.com/linux/debian/gpg
+        dest: /etc/apt/keyrings/docker.asc
+        mode: "0644"
+        force: false
+
+    - name: Add Docker APT repository
+      ansible.builtin.apt_repository:
+        repo: "deb [arch=amd64 signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/debian {{ ansible_distribution_release }} stable"
+        state: present
+        filename: docker
+
+    - name: Ensure Docker and Compose plugin are installed
+      ansible.builtin.apt:
+        name:
+          - docker-ce
+          - docker-ce-cli
+          - containerd.io
+          - docker-compose-plugin
+        state: present
+        update_cache: true
+
+    - name: Ensure docker group exists
+      ansible.builtin.group:
+        name: docker
+        state: present
+
+    - name: Add operational user to docker group
+      ansible.builtin.user:
+        name: ansible
+        groups: docker
+        append: true
+
+    - name: Ensure Docker and containerd services are running and enabled
+      ansible.builtin.systemd:
+        name: "{{ item }}"
+        state: started
+        enabled: true
+      loop:
+        - containerd
+        - docker
+
+    - name: Ensure git registry domain resolves in /etc/hosts
+      ansible.builtin.lineinfile:
+        path: /etc/hosts
+        line: "10.10.1.10 {{ registry_domain }}"
+        state: present
+      when: registry_domain != 'localhost'
+
+    - name: Configure Docker daemon for internal registry
+      ansible.builtin.copy:
+        dest: /etc/docker/daemon.json
+        content: |
+          {
+            "insecure-registries": ["{{ registry_domain }}"]
+          }
+        mode: "0644"
+      register: docker_daemon_config
+
+    - name: Restart Docker to apply daemon config
+      ansible.builtin.systemd:
+        name: docker
+        state: restarted
+      when: docker_daemon_config.changed
+
+    - name: Authenticate to Gitea Container Registry
+      ansible.builtin.command:
+        cmd: >
+          docker login {{ registry_domain }}
+          -u {{ registry_user }}
+          --password-stdin
+        stdin: "{{ registry_token }}"
+      when: registry_token | length > 0
+      changed_when: false
+      no_log: true
+
+    - name: Deploy docker-compose.yml
+      ansible.builtin.copy:
+        src: ../docker-compose.yml
+        dest: "{{ app_dir }}/docker-compose.yml"
+        owner: ansible
+        group: ansible
+        mode: "0644"
+
+    # [impl->req~in-ram-container-secrets~1]
+    - name: Ensure RAM-backed secret directory exists in /dev/shm
+      ansible.builtin.file:
+        path: /dev/shm/test-app
+        state: directory
+        owner: ansible
+        group: ansible
+        mode: "0700"
+
+    - name: Inject database secret directly into RAM tmpfs
+      ansible.builtin.copy:
+        dest: /dev/shm/test-app/postgres_password
+        content: "{{ app_db_password }}"
+        owner: ansible
+        group: ansible
+        mode: "0400"
+      no_log: true
+      when: app_db_password is defined and app_db_password | length > 0
+
+    - name: Launch Test App container
+      ansible.builtin.command:
+        cmd: docker compose up -d --pull always --remove-orphans
+        chdir: "{{ app_dir }}"
+      environment:
+        IMAGE_NAME: "{{ image_name }}"
+        IMAGE_TAG: "{{ image_tag }}"
+        APP_ENV: "{{ 'production' if target_env | default('dev') == 'prod' else 'development' }}"
+        HOST_PORT: "{{ hostvars[inventory_hostname]['host_port'] }}"
+        DB_HOST: "{{ '10.30.2.10' if target_env == 'prod' else '10.20.2.10' }}"
+        DB_PORT: "5432"
+        DB_NAME: "test_app"
+        DB_USER: "test_app_user"
+      register: compose_run
+      changed_when: "'Started' in compose_run.stdout or 'Recreated' in compose_run.stdout or 'Pulling' in compose_run.stdout"
+
+    - name: Verify application health locally
+      ansible.builtin.uri:
+        url: "http://127.0.0.1:{{ hostvars[inventory_hostname]['host_port'] }}/healthz"
+        status_code: 200
+      retries: 10
+      delay: 3
+
+    - name: Verify application database connectivity locally
+      ansible.builtin.uri:
+        url: "http://127.0.0.1:{{ hostvars[inventory_hostname]['host_port'] }}/db/status"
+        status_code: 200
+      retries: 10
+      delay: 3
+
+# ==============================================================================
+# Play 2: Ingress Reverse Proxy Configuration (Caddy)
+# ==============================================================================
+- name: Configure Caddy Ingress Reverse Proxy route
+  hosts: caddy
+  become: true
+  vars:
+    app_name: "test-app"
+    target_vm: "{{ 'prod-app-testapp' if target_env == 'prod' else 'dev-app-testapp' }}"
+    target_host_ip: "{{ hostvars[target_vm]['ansible_host'] }}"
+    target_host_port: "{{ hostvars[target_vm]['host_port'] }}"
+    app_domain: "{{ hostvars[target_vm]['app_subdomain'] }}.{{ base_domain }}"
+
+  tasks:
+    - name: Ensure Caddy modular configuration directory exists
+      ansible.builtin.file:
+        path: /opt/caddy/conf.d
+        state: directory
+        owner: root
+        group: root
+        mode: "0755"
+
+    - name: Deploy Caddy reverse proxy snippet
+      ansible.builtin.copy:
+        dest: "/opt/caddy/conf.d/{{ app_name }}-{{ target_env }}.Caddyfile"
+        content: |
+          # Managed by Ansible for {{ app_name }} ({{ target_env }})
+          {{ app_domain }} {
+              tls internal
+              reverse_proxy {{ target_host_ip }}:{{ target_host_port }}
+          }
+        owner: root
+        group: root
+        mode: "0644"
+      register: caddy_snippet_result
+
+    - name: Reload Caddy configuration
+      ansible.builtin.command:
+        cmd: docker exec caddy caddy reload --config /etc/caddy/Caddyfile
+      when: caddy_snippet_result.changed
+
+# ==============================================================================
+# Play 3: Gatus Health Monitoring Configuration
+# ==============================================================================
+- name: Register Test App health monitor in Gatus
+  hosts: gatus
+  become: true
+  vars:
+    app_name: "test-app"
+    target_vm: "{{ 'prod-app-testapp' if target_env == 'prod' else 'dev-app-testapp' }}"
+    target_host_ip: "{{ hostvars[target_vm]['ansible_host'] }}"
+    target_host_port: "{{ hostvars[target_vm]['host_port'] }}"
+    gatus_config_file: "/opt/gatus/config/config.yaml"
+
+  tasks:
+    - name: Ensure Test App endpoint is registered in Gatus configuration
+      ansible.builtin.blockinfile:
+        path: "{{ gatus_config_file }}"
+        marker: "  # {mark} ANSIBLE MANAGED ENDPOINT: {{ app_name }}-{{ target_env }}"
+        block: |
+          {{ '  ' }}- name: "{{ app_name }}-{{ target_env }}"
+              group: "applications-{{ target_env }}"
+              url: "http://{{ target_host_ip }}:{{ target_host_port }}/healthz"
+              interval: 30s
+              conditions:
+                - "[STATUS] == 200"
+        insertafter: "^endpoints:"
+      register: gatus_endpoint_result
+
+    - name: Reload Gatus to pick up updated endpoint definitions
+      ansible.builtin.command:
+        cmd: docker restart core-gatus
+      when: gatus_endpoint_result.changed

@@ -1,0 +1,28 @@
+# Ansible managed: docker-compose for PostgreSQL
+# [impl->req~in-ram-container-secrets~1]
+services:
+  postgres:
+    image: postgres:{{ postgres_version }}
+    container_name: {{ postgres_container_name }}
+    restart: unless-stopped
+    ports:
+      - "{{ postgres_port }}:5432"
+    environment:
+      POSTGRES_USER: "{{ postgres_admin_user }}"
+      POSTGRES_PASSWORD_FILE: /run/secrets/postgres_password
+      POSTGRES_HOST_AUTH_METHOD: "scram-sha-256"
+      POSTGRES_DB: "{{ postgres_db }}"
+      PGDATA: /var/lib/postgresql/data/pgdata
+    secrets:
+      - postgres_password
+    volumes:
+      - ./data:/var/lib/postgresql/data:Z
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U {{ postgres_admin_user }} -d {{ postgres_db }}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+secrets:
+  postgres_password:
+    file: /dev/shm/postgres/postgres_password

@@ -1,0 +1,78 @@
+# Ansible managed: docker-compose for Gitea Git service
+services:
+  server:
+    image: {{ gitea_image }}
+    container_name: core-gitea
+    restart: unless-stopped
+    environment:
+{% for key, val in (gitea_default_env | combine(gitea_custom_env)).items() %}
+      {{ key }}: "{{ val }}"
+{% endfor %}
+    volumes:
+      - ./data:/data
+      - /etc/timezone:/etc/timezone:ro
+      - /etc/localtime:/etc/localtime:ro
+      - /etc/ssl/certs/ca-certificates.crt:/etc/ssl/certs/ca-certificates.crt:ro
+    ports:
+      - "{{ gitea_http_port }}:3000"
+      - "{{ gitea_ssh_port }}:22"
+    extra_hosts:
+      - "{{ auth_domain }}:{{ hostvars['core-coord-caddy'].ansible_host | default('10.10.1.10') }}"
+
+# [impl->req~gitops-ci-cd-platform~1]
+{% if enable_gitea_actions | default(true) | bool and (gitea_runner_token | default('') | length > 0) %}
+  act_runner:
+    image: {{ act_runner_image }}
+    container_name: core-gitea-runner
+    restart: unless-stopped
+    extra_hosts:
+      - "{{ gitea_domain }}:{{ hostvars['core-coord-caddy'].ansible_host | default('10.10.1.10') }}"
+    environment:
+      - CONFIG_FILE=/data/config.yaml
+      - GITEA_INSTANCE_URL=http://server:3000
+      - GITEA_RUNNER_REGISTRATION_TOKEN={{ gitea_runner_token }}
+      - GITEA_RUNNER_NAME=core-gitea-act-runner
+      - GITEA_RUNNER_LABELS=ubuntu-latest:docker://catthehacker/ubuntu:act-latest,ubuntu-22.04:docker://catthehacker/ubuntu:act-22.04
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ./runner_data:/data
+    depends_on:
+      - server
+{% endif %}
+
+{% if enable_atlantis | default(true) | bool and ((gitea_atlantis_token | default('') | length > 0) or (gitea_utility_token | default('') | length > 0)) %}
+  atlantis:
+    image: {{ atlantis_image }}
+    container_name: core-gitea-atlantis
+    restart: unless-stopped
+    extra_hosts:
+      - "{{ gitea_domain }}:{{ hostvars['core-coord-caddy'].ansible_host | default('10.10.1.10') }}"
+    environment:
+      - ATLANTIS_GITEA_BASE_URL=http://server:3000
+      - ATLANTIS_GITEA_USER={{ gitea_atlantis_user | default('atlantis') }}
+      - ATLANTIS_GITEA_TOKEN={{ gitea_atlantis_token | default(gitea_utility_token) }}
+      - ATLANTIS_GITEA_WEBHOOK_SECRET={{ atlantis_webhook_secret }}
+      - ATLANTIS_ATLANTIS_URL=http://atlantis:4141
+      - ATLANTIS_DEFAULT_TF_DISTRIBUTION=opentofu
+      - ATLANTIS_DEFAULT_TF_VERSION={{ atlantis_default_tf_version }}
+      - ATLANTIS_REPO_ALLOWLIST={{ atlantis_repo_allowlist }}
+      - TF_HTTP_USERNAME={{ gitea_atlantis_user }}
+      - TF_HTTP_PASSWORD={{ gitea_atlantis_token | default(gitea_utility_token) }}
+      - PROXMOX_VE_ENDPOINT={{ atlantis_proxmox_endpoint }}
+      - PROXMOX_VE_API_TOKEN={{ atlantis_proxmox_api_token }}
+      - PROXMOX_VE_INSECURE=true
+      - GIT_SSL_NO_VERIFY=true
+      - INFISICAL_TOKEN={{ lookup('file', '/srv/admin/secrets/infisical_atlantis_token', errors='ignore') | trim }}
+      - INFISICAL_HOST=http://10.10.1.13:8080
+      - TF_VAR_proxmox_node={{ pve_node_name }}
+      - TF_VAR_dev_postgres_gitea_actions_password={{ lookup('file', '/srv/admin/secrets/dev_postgres_gitea_actions_password', errors='ignore') | trim }}
+      - TF_VAR_prod_postgres_gitea_actions_password={{ lookup('file', '/srv/admin/secrets/prod_postgres_gitea_actions_password', errors='ignore') | trim }}
+      - TF_VAR_infisical_token={{ lookup('file', '/srv/admin/secrets/infisical_atlantis_token', errors='ignore') | trim }}
+      - TF_VAR_infisical_host=http://10.10.1.13:8080
+    volumes:
+      - ./atlantis_data:/atlantis-data
+    ports:
+      - "127.0.0.1:4141:4141"
+    depends_on:
+      - server
+{% endif %}

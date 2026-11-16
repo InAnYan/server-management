@@ -1,0 +1,205 @@
+---
+# [impl->req~app-accounts-ansible~1]
+- name: Retrieve Authentik OIDC property scope mappings
+  ansible.builtin.uri:
+    url: "http://127.0.0.1:{{ authentik_http_port }}/api/v3/propertymappings/provider/scope/"
+    headers:
+      Authorization: "Bearer {{ authentik_bootstrap_token }}"
+    status_code: 200
+  register: authentik_scope_query
+  tags:
+    - authentik
+    - sso
+
+- name: Retrieve Authentik signing certificate keypair
+  ansible.builtin.uri:
+    url: "http://127.0.0.1:{{ authentik_http_port }}/api/v3/crypto/certificatekeypairs/?name={{ 'authentik Self-signed Certificate' | urlencode }}"
+    headers:
+      Authorization: "Bearer {{ authentik_bootstrap_token }}"
+    status_code: 200
+  register: authentik_cert_query
+  tags:
+    - authentik
+    - sso
+
+- name: Retrieve default provider authorization and invalidation flows
+  ansible.builtin.uri:
+    url: "http://127.0.0.1:{{ authentik_http_port }}/api/v3/flows/instances/?slug={{ item }}"
+    headers:
+      Authorization: "Bearer {{ authentik_bootstrap_token }}"
+    status_code: 200
+  loop:
+    - default-provider-authorization-implicit-consent
+    - default-provider-invalidation-flow
+  register: authentik_flow_query
+  tags:
+    - authentik
+    - sso
+
+- name: Extract Authentik flow, scope, and certificate UUIDs
+  ansible.builtin.set_fact:
+    authentik_signing_key_pk: >-
+      {{
+        authentik_cert_query.json.results[0].pk
+      }}
+    authentik_default_scopes: >-
+      {{
+        authentik_scope_query.json.results
+        | selectattr('scope_name', 'in', ['openid', 'email', 'profile'])
+        | map(attribute='pk')
+        | list
+      }}
+    authentik_auth_flow_pk: >-
+      {{
+        (authentik_flow_query.results
+         | selectattr('item', 'equalto', 'default-provider-authorization-implicit-consent')
+         | map(attribute='json.results')
+         | first
+         | first).pk
+      }}
+    authentik_inval_flow_pk: >-
+      {{
+        (authentik_flow_query.results
+         | selectattr('item', 'equalto', 'default-provider-invalidation-flow')
+         | map(attribute='json.results')
+         | first
+         | first).pk
+      }}
+  tags:
+    - authentik
+    - sso
+
+- name: Query existing OAuth2 providers in Authentik
+  ansible.builtin.uri:
+    url: "http://127.0.0.1:{{ authentik_http_port }}/api/v3/providers/oauth2/?name={{ item.name | urlencode }}"
+    headers:
+      Authorization: "Bearer {{ authentik_bootstrap_token }}"
+    status_code: 200
+  loop: "{{ authentik_sso_applications }}"
+  register: existing_providers_query
+  tags:
+    - authentik
+    - sso
+
+- name: Create OAuth2 providers in Authentik if absent
+  ansible.builtin.uri:
+    url: "http://127.0.0.1:{{ authentik_http_port }}/api/v3/providers/oauth2/"
+    method: POST
+    headers:
+      Authorization: "Bearer {{ authentik_bootstrap_token }}"
+      Content-Type: "application/json"
+    body_format: json
+    body:
+      name: "{{ item.item.name }}"
+      client_id: "{{ item.item.client_id }}"
+      client_secret: "{{ item.item.client_secret }}"
+      client_type: "confidential"
+      signing_key: "{{ authentik_signing_key_pk }}"
+      redirect_uris: "{{ item.item.redirect_uris }}"
+      authorization_flow: "{{ authentik_auth_flow_pk }}"
+      invalidation_flow: "{{ authentik_inval_flow_pk }}"
+      property_mappings: "{{ authentik_default_scopes }}"
+    status_code: [201]
+  loop: "{{ existing_providers_query.results }}"
+  when: item.json.pagination.count == 0
+  tags:
+    - authentik
+    - sso
+
+- name: Update OAuth2 providers in Authentik if present
+  ansible.builtin.uri:
+    url: "http://127.0.0.1:{{ authentik_http_port }}/api/v3/providers/oauth2/{{ item.json.results[0].pk }}/"
+    method: PATCH
+    headers:
+      Authorization: "Bearer {{ authentik_bootstrap_token }}"
+      Content-Type: "application/json"
+    body_format: json
+    body:
+      client_id: "{{ item.item.client_id }}"
+      client_secret: "{{ item.item.client_secret }}"
+      client_type: "confidential"
+      signing_key: "{{ authentik_signing_key_pk }}"
+      redirect_uris: "{{ item.item.redirect_uris }}"
+      authorization_flow: "{{ authentik_auth_flow_pk }}"
+      invalidation_flow: "{{ authentik_inval_flow_pk }}"
+      property_mappings: "{{ authentik_default_scopes }}"
+    status_code: [200]
+  loop: "{{ existing_providers_query.results }}"
+  when: item.json.pagination.count > 0
+  tags:
+    - authentik
+    - sso
+
+- name: Query existing applications in Authentik
+  ansible.builtin.uri:
+    url: "http://127.0.0.1:{{ authentik_http_port }}/api/v3/core/applications/?slug={{ item.slug }}"
+    headers:
+      Authorization: "Bearer {{ authentik_bootstrap_token }}"
+    status_code: 200
+  loop: "{{ authentik_sso_applications }}"
+  register: existing_apps_query
+  tags:
+    - authentik
+    - sso
+
+- name: Re-query OAuth2 providers to obtain fresh PKs
+  ansible.builtin.uri:
+    url: "http://127.0.0.1:{{ authentik_http_port }}/api/v3/providers/oauth2/?name={{ item.name | urlencode }}"
+    headers:
+      Authorization: "Bearer {{ authentik_bootstrap_token }}"
+    status_code: 200
+  loop: "{{ authentik_sso_applications }}"
+  register: fresh_providers_query
+  tags:
+    - authentik
+    - sso
+
+- name: Compile application provider map
+  ansible.builtin.set_fact:
+    app_provider_map: >-
+      {{
+        app_provider_map | default({}) | combine({
+          item.item.slug: (item.json.results | first).pk
+        })
+      }}
+  loop: "{{ fresh_providers_query.results }}"
+  tags:
+    - authentik
+    - sso
+
+- name: Create applications in Authentik if absent
+  ansible.builtin.uri:
+    url: "http://127.0.0.1:{{ authentik_http_port }}/api/v3/core/applications/"
+    method: POST
+    headers:
+      Authorization: "Bearer {{ authentik_bootstrap_token }}"
+      Content-Type: "application/json"
+    body_format: json
+    body:
+      name: "{{ item.item.name }}"
+      slug: "{{ item.item.slug }}"
+      provider: "{{ app_provider_map[item.item.slug] }}"
+    status_code: [201]
+  loop: "{{ existing_apps_query.results }}"
+  when: item.json.pagination.count == 0
+  tags:
+    - authentik
+    - sso
+
+- name: Update applications in Authentik if present
+  ansible.builtin.uri:
+    url: "http://127.0.0.1:{{ authentik_http_port }}/api/v3/core/applications/{{ item.item.slug }}/"
+    method: PATCH
+    headers:
+      Authorization: "Bearer {{ authentik_bootstrap_token }}"
+      Content-Type: "application/json"
+    body_format: json
+    body:
+      name: "{{ item.item.name }}"
+      provider: "{{ app_provider_map[item.item.slug] }}"
+    status_code: [200]
+  loop: "{{ existing_apps_query.results }}"
+  when: item.json.pagination.count > 0
+  tags:
+    - authentik
+    - sso

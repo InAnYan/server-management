@@ -1,0 +1,83 @@
+@startuml
+autonumber
+skinparam BoxPadding 10
+skinparam ParticipantPadding 10
+skinparam ResponseMessageBelowArrow true
+
+actor "Developer" as Dev #LightBlue
+actor "Reviewer / Admin" as Admin #LightYellow
+
+box "Platform" #GhostWhite
+    participant "Gitea" as Git
+    participant "Atlantis Bot" as Atlantis
+    participant "Gitea Runner" as Runner
+end box
+
+box "Infrastructure" #HoneyDew
+    participant "Proxmox VE" as PVE
+    participant "Target VM" as VM
+    participant "Caddy (10.10.1.10)" as Caddy
+    participant "Gatus (10.10.1.11)" as Gatus
+end box
+
+== 1. Pull Request Verification ==
+
+Dev -> Git : Open PR (targeting main or prod)
+
+par Run in Parallel
+    group CI Checks (pr.yaml)
+        Git -> Runner : Dispatch PR CI job
+        Runner -> Runner : Run Ruff linter & Pytest suite
+        Runner -> Runner : Dry-run Docker build
+        Runner --> Git : Report CI status (success/failure)
+    end
+
+    group Infrastructure Planning (Atlantis)
+        Git -> Atlantis : Webhook trigger on PR changes
+        Atlantis -> PVE : tofu plan (dev & prod workspaces)
+        PVE --> Atlantis : Return plan diff
+        Atlantis --> Git : Comment plan summary on PR
+    end
+end
+
+== 2. Infrastructure Provisioning & Merge ==
+
+alt Has Infrastructure Changes
+    Admin -> Git : Review plan diff and comment "atlantis apply -p dev"
+    Git -> Atlantis : Forward apply command
+    Atlantis -> PVE : tofu apply (create VM, attach VNet, set firewall)
+    PVE --> Atlantis : VM provisioned and running
+    Atlantis --> Git : Comment "Apply Successful"
+end
+
+Admin -> Git : Approve Pull Request
+Dev -> Git : Merge PR into main
+
+== 3. Post-Merge Continuous Deployment (deploy.yaml) ==
+
+group Image Build & Publish
+    Git -> Runner : Dispatch deploy workflow
+    Runner -> Runner : Build Docker image with commit SHA & env tag
+    Runner -> Git : Push image to Gitea registry (git.example.com)
+end
+
+group Unified Ansible Deployment (deploy.yml)
+    Runner -> VM : Play 1: Configure Docker & internal registry (SSH)
+    Runner -> VM : Deploy docker-compose.yml & start container
+    activate VM
+    VM -> Git : Pull application image from registry
+    VM -> VM : docker compose up -d
+    VM --> Runner : HTTP 200 on /healthz
+    deactivate VM
+
+    Runner -> Caddy : Play 2: Deploy route snippet (/opt/caddy/conf.d/)
+    Runner -> Caddy : docker exec caddy caddy reload
+    Caddy --> Runner : Reload successful (zero downtime)
+
+    Runner -> Gatus : Play 3: Template declarative Gatus endpoint config
+    Runner -> Gatus : Reload Gatus monitoring container
+    Gatus --> Runner : Monitor active and UP
+end
+
+Git --> Dev : Deployment Complete
+@enduml

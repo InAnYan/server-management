@@ -1,0 +1,20 @@
+---
+common_timezone: "{{ system_timezone | default('UTC') }}"
+common_packages: "{{ essential_packages }}"
+journal_system_max_use: "{{ '1G' if (inventory_hostname in groups['proxmox'] | default([])) else '500M' }}"
+journal_system_keep_free: "1G"
+
+# QEMU Guest Agent RPC restrictions (blocked on guest VMs)
+qemu_ga_block_rpcs:
+  - guest-exec
+  - guest-exec-status
+  - guest-file-open
+  - guest-file-close
+  - guest-file-read
+  - guest-file-write
+  - guest-file-seek
+  - guest-file-flush
+  - guest-set-user-password
+  - guest-ssh-get-authorized-keys
+  - guest-ssh-add-authorized-keys
+  - guest-ssh-remove-authorized-keys

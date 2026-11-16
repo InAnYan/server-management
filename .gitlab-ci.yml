@@ -1,0 +1,36 @@
+stages:
+  - test
+  - secret-detection
+
+include:
+  - template: Security/Secret-Detection.gitlab-ci.yml
+
+# Lint Markdown files whenever markdown files are modified
+markdownlint:
+  stage: test
+  image: node:20-alpine
+  rules:
+    - changes:
+        - "**/*.md"
+        - ".markdownlint.json"
+        - ".gitlab-ci.yml"
+  script:
+    - npx -y markdownlint-cli "**/*.md"
+
+# Verify OpenFastTrace requirement tracing
+openfasttrace:
+  stage: test
+  image: eclipse-temurin:21-jre-alpine
+  before_script:
+    - wget -q https://github.com/itsallcode/openfasttrace/releases/download/4.11.0/openfasttrace-4.11.0.jar -O /tmp/oft.jar
+  script:
+    - java -jar /tmp/oft.jar trace .
+
+# Gitleaks standalone job for comprehensive secret detection
+gitleaks-scan:
+  stage: secret-detection
+  image:
+    name: zricethezav/gitleaks:latest
+    entrypoint: [""]
+  script:
+    - gitleaks detect --source="." --verbose --redact

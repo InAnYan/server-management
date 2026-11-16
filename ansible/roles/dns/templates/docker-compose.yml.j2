@@ -1,0 +1,19 @@
+services:
+  dns-server:
+    image: {{ dns_image }}
+    container_name: core-dns
+    restart: unless-stopped
+    ports:
+      - "{{ dns_port }}:53/udp"
+      - "{{ dns_port }}:53/tcp"
+      - "{{ dns_http_port }}:5380/tcp"
+    extra_hosts:
+      - "{{ auth_domain }}:{{ hostvars['core-coord-caddy'].ansible_host | default('10.10.1.10') }}"
+    environment:
+      - DNS_SERVER_DOMAIN={{ dns_domain }}
+      - DNS_SERVER_ADMIN_PASSWORD={{ dns_admin_password }}
+      - DNS_SERVER_PREFER_IPV6=false
+      - DNS_SERVER_WEB_SERVICE_HTTP_PORT=5380
+    volumes:
+      - {{ dns_dir }}/config:/etc/dns
+      - /etc/ssl/certs/ca-certificates.crt:/etc/ssl/certs/ca-certificates.crt:ro

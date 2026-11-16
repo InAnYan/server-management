@@ -1,0 +1,13 @@
+version: 3
+projects:
+  - name: dev
+    dir: opentofu/dev
+    autoplan:
+      when_modified: ["*.tf", "terraform.tfvars*"]
+      enabled: true
+
+  - name: prod
+    dir: opentofu/prod
+    autoplan:
+      when_modified: ["*.tf", "terraform.tfvars*"]
+      enabled: true

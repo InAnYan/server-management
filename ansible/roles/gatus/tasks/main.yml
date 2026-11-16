@@ -1,0 +1,89 @@
+---
+# [impl->req~service-uptime-monitoring~1]
+- name: Ensure Gatus base directories exist
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    owner: ansible
+    group: docker
+    mode: "0755"
+  loop:
+    - "{{ gatus_dir }}"
+    - "{{ gatus_dir }}/config"
+  tags:
+    - gatus
+    - monitoring
+
+- name: Ensure Gatus instance configuration directories exist
+  ansible.builtin.file:
+    path: "{{ gatus_dir }}/config/{{ item.name }}"
+    state: directory
+    owner: ansible
+    group: docker
+    mode: "0755"
+  loop: "{{ gatus_instances }}"
+  tags:
+    - gatus
+    - monitoring
+
+- name: Template Gatus instance configuration files
+  ansible.builtin.template:
+    src: config.yaml.j2
+    dest: "{{ gatus_dir }}/config/{{ instance.name }}/config.yaml"
+    owner: ansible
+    group: docker
+    mode: "0644"
+  loop: "{{ gatus_instances }}"
+  loop_control:
+    loop_var: instance
+  register: gatus_config_results
+  tags:
+    - gatus
+    - monitoring
+
+- name: Template Gatus docker-compose.yml
+  ansible.builtin.template:
+    src: docker-compose.yml.j2
+    dest: "{{ gatus_dir }}/docker-compose.yml"
+    owner: ansible
+    group: docker
+    mode: "0644"
+  register: gatus_compose_file_result
+  tags:
+    - gatus
+    - monitoring
+
+- name: Launch Gatus monitoring containers
+  ansible.builtin.command:
+    cmd: docker compose up -d --remove-orphans
+    chdir: "{{ gatus_dir }}"
+  register: gatus_compose_result
+  changed_when: "'Started' in gatus_compose_result.stdout or 'Recreated' in gatus_compose_result.stdout or 'Pulling' in gatus_compose_result.stdout"
+  tags:
+    - gatus
+    - monitoring
+
+- name: Restart Gatus containers if configurations changed
+  ansible.builtin.command:
+    cmd: "docker compose restart {{ item.instance.service_name }}"
+    chdir: "{{ gatus_dir }}"
+  loop: "{{ gatus_config_results.results }}"
+  when:
+    - item.changed
+    - not gatus_compose_result.changed
+  tags:
+    - gatus
+    - monitoring
+
+- name: Wait for Gatus service instances to become healthy
+  ansible.builtin.uri:
+    url: "http://127.0.0.1:{{ item.port }}/"
+    status_code: [200, 302]
+  register: gatus_health
+  until: gatus_health.status in [200, 302]
+  retries: 15
+  delay: 2
+  loop: "{{ gatus_instances }}"
+  tags:
+    - gatus
+    - monitoring

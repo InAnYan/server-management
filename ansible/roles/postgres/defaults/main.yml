@@ -1,0 +1,21 @@
+---
+# PostgreSQL defaults
+postgres_version: "16-alpine"
+postgres_dir: "/opt/postgres"
+postgres_port: 5432
+postgres_uid: "70"
+postgres_gid: "70"
+postgres_admin_user: "postgres"
+postgres_admin_password: "{{ lookup('file', '/srv/admin/secrets/postgres_admin_password', errors='ignore') | trim }}"
+postgres_container_name: "postgres"
+postgres_db: "postgres"
+gitea_db_user: "gitea"
+gitea_db_name: "giteadb"
+gitea_db_password: "{{ lookup('file', '/srv/admin/secrets/gitea_db_password', errors='ignore') | trim }}"
+powerdns_db_user: "pdns"
+powerdns_db_name: "powerdns"
+powerdns_db_password: "{{ lookup('file', '/srv/admin/secrets/powerdns_db_password', errors='ignore') | trim }}"
+powerdns_admin_db_name: "powerdnsadmin"
+authentik_db_user: "authentik"
+authentik_db_name: "authentik"
+authentik_db_password: "{{ lookup('file', '/srv/admin/secrets/authentik_db_password', errors='ignore') | trim }}"

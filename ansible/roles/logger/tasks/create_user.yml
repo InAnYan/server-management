@@ -1,0 +1,121 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ansible/ansible-lint/main/src/ansiblelint/schemas/ansible.json
+---
+# [impl->req~app-accounts-ansible~1]
+- name: Normalize Grafana user input parameters
+  ansible.builtin.set_fact:
+    target_username: "{{ username | default(admin_username | default('')) }}"
+    target_password: "{{ password | default(admin_password | default('')) }}"
+    target_email: "{{ email | default(admin_email | default(user_email | default((username | default(admin_username | default('user'))) ~ '@' ~ (dns_zone_name | default('example.com'))))) }}"
+    target_name: "{{ display_name | default(admin_display_name | default(name | default(username | default(admin_username | default(''))))) }}"
+    target_is_admin: "{{ is_admin | default(true) | bool }}"
+
+- name: Validate Grafana user parameters
+  ansible.builtin.assert:
+    that:
+      - target_username | length > 0
+      - target_password | length > 0
+    fail_msg: "Both username (or admin_username) and password (or admin_password) must be specified and non-empty."
+
+- name: Determine Grafana admin credentials if not set
+  when: (grafana_admin_password | default('')) | length == 0
+  block:
+    - name: Try to read Grafana admin password from controller secrets file
+      ansible.builtin.set_fact:
+        grafana_admin_password: "{{ lookup('file', '/srv/admin/secrets/grafana_admin_password', errors='ignore') | trim }}"
+
+    - name: Try to inspect Grafana admin password from container environment
+      when: (grafana_admin_password | default('')) | length == 0
+      block:
+        - name: Inspect core-logger-grafana container environment
+          ansible.builtin.command:
+            cmd: docker inspect --format '{% raw %}{{ range .Config.Env }}{{ println . }}{{ end }}{% endraw %}' core-logger-grafana
+          register: grafana_docker_env
+          changed_when: false
+          failed_when: false
+
+        - name: Extract GF_SECURITY_ADMIN_PASSWORD from container env
+          ansible.builtin.set_fact:
+            grafana_admin_password: "{{ grafana_docker_env.stdout | regex_search('^GF_SECURITY_ADMIN_PASSWORD=(.*)$', '\\1', multiline=True) | first | default('') }}"
+          when:
+            - grafana_docker_env.rc == 0
+            - grafana_docker_env.stdout is defined
+
+- name: Assert Grafana admin password is known
+  ansible.builtin.assert:
+    that:
+      - grafana_admin_password is defined and (grafana_admin_password | length > 0)
+    fail_msg: "Grafana admin password could not be resolved from secrets or container environment."
+
+- name: Check if Grafana user already exists
+  ansible.builtin.uri:
+    url: "http://127.0.0.1:{{ grafana_port | default(3000) }}/api/users/lookup?loginOrEmail={{ target_username | urlencode }}"
+    method: GET
+    user: "{{ grafana_admin_user | default('admin') }}"
+    password: "{{ grafana_admin_password }}"
+    force_basic_auth: true
+    status_code:
+      - 200
+      - 404
+  register: grafana_user_lookup
+
+- name: Create new user in Grafana
+  ansible.builtin.uri:
+    url: "http://127.0.0.1:{{ grafana_port | default(3000) }}/api/admin/users"
+    method: POST
+    user: "{{ grafana_admin_user | default('admin') }}"
+    password: "{{ grafana_admin_password }}"
+    force_basic_auth: true
+    body_format: json
+    body:
+      name: "{{ target_name }}"
+      email: "{{ target_email }}"
+      login: "{{ target_username }}"
+      password: "{{ target_password }}"
+    status_code:
+      - 200
+  register: grafana_user_create_resp
+  when: grafana_user_lookup.status == 404
+
+- name: Resolve user ID for Grafana user
+  ansible.builtin.set_fact:
+    target_user_id: "{{ grafana_user_lookup.json.id if grafana_user_lookup.status == 200 else grafana_user_create_resp.json.id }}"
+
+- name: Update existing Grafana user password
+  ansible.builtin.uri:
+    url: "http://127.0.0.1:{{ grafana_port | default(3000) }}/api/admin/users/{{ target_user_id }}/password"
+    method: PUT
+    user: "{{ grafana_admin_user | default('admin') }}"
+    password: "{{ grafana_admin_password }}"
+    force_basic_auth: true
+    body_format: json
+    body:
+      password: "{{ target_password }}"
+    status_code:
+      - 200
+  when: grafana_user_lookup.status == 200
+
+- name: Update organization role for Grafana user
+  ansible.builtin.uri:
+    url: "http://127.0.0.1:{{ grafana_port | default(3000) }}/api/org/users/{{ target_user_id }}"
+    method: PATCH
+    user: "{{ grafana_admin_user | default('admin') }}"
+    password: "{{ grafana_admin_password }}"
+    force_basic_auth: true
+    body_format: json
+    body:
+      role: "{{ 'Admin' if (target_is_admin | bool) else 'Viewer' }}"
+    status_code:
+      - 200
+
+- name: Update Grafana server admin permissions
+  ansible.builtin.uri:
+    url: "http://127.0.0.1:{{ grafana_port | default(3000) }}/api/admin/users/{{ target_user_id }}/permissions"
+    method: PUT
+    user: "{{ grafana_admin_user | default('admin') }}"
+    password: "{{ grafana_admin_password }}"
+    force_basic_auth: true
+    body_format: json
+    body:
+      isGrafanaAdmin: "{{ target_is_admin | bool }}"
+    status_code:
+      - 200

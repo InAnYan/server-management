@@ -1,0 +1,36 @@
+---
+- name: Ensure SSH configuration drop-in directory exists
+  ansible.builtin.file:
+    path: /etc/ssh/sshd_config.d
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+
+# [impl->req~host-access-ssh-keys-only~1]
+# [impl->req~vm-access-ssh-keys-only~1]
+- name: Harden SSH daemon (disable password authentication)
+  ansible.builtin.copy:
+    dest: /etc/ssh/sshd_config.d/01-hardening.conf
+    content: |
+      # Managed by Ansible - do not edit manually
+      PasswordAuthentication no
+      KbdInteractiveAuthentication no
+      PermitRootLogin prohibit-password
+      PubkeyAuthentication yes
+    owner: root
+    group: root
+    mode: "0644"
+  notify: Restart ssh
+
+# [impl->req~host-ssh-port-2222-key-only~1]
+- name: Configure SSH daemon listening port
+  ansible.builtin.copy:
+    dest: /etc/ssh/sshd_config.d/02-port.conf
+    content: |
+      # Managed by Ansible - do not edit manually
+      Port {{ sshd_port | default(22) }}
+    owner: root
+    group: root
+    mode: "0644"
+  notify: Restart ssh

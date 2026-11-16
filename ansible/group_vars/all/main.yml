@@ -1,0 +1,45 @@
+---
+# Global configuration variables for all VMs
+
+# Service endpoints derived directly from site configuration (single expression, no fallbacks)
+dns_domain: "dns.{{ dns_zone_name }}"
+status_domain: "status.{{ dns_zone_name }}"
+status_dev_domain: "status-dev.{{ dns_zone_name }}"
+status_internal_domain: "status-internal.{{ dns_zone_name }}"
+auth_domain: "auth.{{ dns_zone_name }}"
+authentik_port: 9000
+gitea_domain: "git.{{ dns_zone_name }}"
+infisical_domain: "infisical.{{ dns_zone_name }}"
+infisical_port: 8080
+minio_domain: "s3.{{ dns_zone_name }}"
+minio_console_domain: "s3-console.{{ dns_zone_name }}"
+logs_domain: "logs.{{ dns_zone_name }}"
+loki_port: 3100
+grafana_port: 3000
+
+# Essential baseline packages for Debian cloud images
+essential_packages:
+  # Proxmox integration (clean shutdown, IP discovery, ballooning)
+  - qemu-guest-agent
+  # Network & transfer utilities
+  - curl
+  - ca-certificates
+  - gnupg
+  - rsync
+  - dnsutils
+  - iproute2
+  - net-tools
+  # Administration & debugging tools
+  - sudo
+  - htop
+  - tmux
+  - ncdu
+  - jq
+  - unzip
+  - vim
+  - nano
+  # Firewall baseline
+  - ufw
+
+# SSH daemon listening port (default for VMs)
+sshd_port: 22

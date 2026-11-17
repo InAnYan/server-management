@@ -44,6 +44,80 @@
   tags:
     - redis
 
+# [impl->req~databases-isolated-from-internet~1]
+- name: Check if Redis image exists locally in Docker
+  ansible.builtin.command:
+    cmd: "docker image inspect {{ redis_image }}"
+  register: redis_image_check
+  failed_when: false
+  changed_when: false
+  tags:
+    - redis
+
+- name: Pre-fetch and transfer Redis image for isolated nodes
+  when:
+    - not (node_has_internet | default(true) | bool)
+    - redis_image_check.rc != 0
+  tags:
+    - redis
+  block:
+    - name: Ensure controller images cache directory exists
+      ansible.builtin.file:
+        path: /srv/admin/images
+        state: directory
+        owner: root
+        group: root
+        mode: "0755"
+      delegate_to: localhost
+      run_once: true
+
+    - name: Check available image pre-fetch tool on controller
+      ansible.builtin.command:
+        cmd: which skopeo
+      register: skopeo_check
+      failed_when: false
+      changed_when: false
+      delegate_to: localhost
+      run_once: true
+
+    - name: Pre-fetch Redis image archive using skopeo
+      ansible.builtin.command:
+        cmd: >
+          skopeo copy --override-os linux --override-arch amd64
+          docker://docker.io/{{ redis_image }}
+          docker-archive:/srv/admin/images/redis-{{ redis_image | regex_replace('[:/]', '_') }}.tar:{{ redis_image }}
+      delegate_to: localhost
+      run_once: true
+      args:
+        creates: "/srv/admin/images/redis-{{ redis_image | regex_replace('[:/]', '_') }}.tar"
+      when: skopeo_check.rc == 0
+
+    - name: Pre-fetch Redis image archive using docker
+      ansible.builtin.shell:
+        cmd: >
+          docker pull {{ redis_image }} &&
+          docker save {{ redis_image }} -o /srv/admin/images/redis-{{ redis_image | regex_replace('[:/]', '_') }}.tar
+      delegate_to: localhost
+      run_once: true
+      args:
+        creates: "/srv/admin/images/redis-{{ redis_image | regex_replace('[:/]', '_') }}.tar"
+      when: skopeo_check.rc != 0
+
+    - name: Transfer Redis image archive to target VM
+      ansible.builtin.copy:
+        src: "/srv/admin/images/redis-{{ redis_image | regex_replace('[:/]', '_') }}.tar"
+        dest: "/tmp/redis-image.tar"
+        mode: "0644"
+
+    - name: Load Redis image into target Docker daemon
+      ansible.builtin.command:
+        cmd: "docker load -i /tmp/redis-image.tar"
+
+    - name: Clean up temporary image archive on target VM
+      ansible.builtin.file:
+        path: "/tmp/redis-image.tar"
+        state: absent
+
 - name: Pull and start Redis container
   ansible.builtin.command:
     cmd: docker compose up -d --remove-orphans

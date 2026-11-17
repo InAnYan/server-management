@@ -59,6 +59,82 @@
     - postgres
     - database
 
+# [impl->req~databases-isolated-from-internet~1]
+- name: Check if PostgreSQL image exists locally in Docker
+  ansible.builtin.command:
+    cmd: "docker image inspect postgres:{{ postgres_version }}"
+  register: postgres_image_check
+  failed_when: false
+  changed_when: false
+  tags:
+    - postgres
+    - database
+
+- name: Pre-fetch and transfer PostgreSQL image for isolated nodes
+  when:
+    - not (node_has_internet | default(true) | bool)
+    - postgres_image_check.rc != 0
+  tags:
+    - postgres
+    - database
+  block:
+    - name: Ensure controller images cache directory exists
+      ansible.builtin.file:
+        path: /srv/admin/images
+        state: directory
+        owner: root
+        group: root
+        mode: "0755"
+      delegate_to: localhost
+      run_once: true
+
+    - name: Check available image pre-fetch tool on controller
+      ansible.builtin.command:
+        cmd: which skopeo
+      register: skopeo_check
+      failed_when: false
+      changed_when: false
+      delegate_to: localhost
+      run_once: true
+
+    - name: Pre-fetch PostgreSQL image archive using skopeo
+      ansible.builtin.command:
+        cmd: >
+          skopeo copy --override-os linux --override-arch amd64
+          docker://docker.io/library/postgres:{{ postgres_version }}
+          docker-archive:/srv/admin/images/postgres-{{ postgres_version }}.tar:postgres:{{ postgres_version }}
+      delegate_to: localhost
+      run_once: true
+      args:
+        creates: "/srv/admin/images/postgres-{{ postgres_version }}.tar"
+      when: skopeo_check.rc == 0
+
+    - name: Pre-fetch PostgreSQL image archive using docker
+      ansible.builtin.shell:
+        cmd: >
+          docker pull postgres:{{ postgres_version }} &&
+          docker save postgres:{{ postgres_version }} -o /srv/admin/images/postgres-{{ postgres_version }}.tar
+      delegate_to: localhost
+      run_once: true
+      args:
+        creates: "/srv/admin/images/postgres-{{ postgres_version }}.tar"
+      when: skopeo_check.rc != 0
+
+    - name: Transfer PostgreSQL image archive to target VM
+      ansible.builtin.copy:
+        src: "/srv/admin/images/postgres-{{ postgres_version }}.tar"
+        dest: "/tmp/postgres-{{ postgres_version }}.tar"
+        mode: "0644"
+
+    - name: Load PostgreSQL image into target Docker daemon
+      ansible.builtin.command:
+        cmd: "docker load -i /tmp/postgres-{{ postgres_version }}.tar"
+
+    - name: Clean up temporary image archive on target VM
+      ansible.builtin.file:
+        path: "/tmp/postgres-{{ postgres_version }}.tar"
+        state: absent
+
 - name: Pull and start PostgreSQL container
   ansible.builtin.command:
     cmd: docker compose up -d

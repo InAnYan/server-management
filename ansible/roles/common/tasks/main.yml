@@ -55,18 +55,10 @@
     - common
     - certificates
 
-- name: Configure APT proxy for nodes without direct internet egress
-  ansible.builtin.copy:
-    dest: /etc/apt/apt.conf.d/01proxy
-    content: |
-      Acquire::http::Proxy "http://{{ ansible_default_ipv4.gateway }}:8888";
-      Acquire::https::Proxy "http://{{ ansible_default_ipv4.gateway }}:8888";
-    owner: root
-    group: root
-    mode: "0644"
-  when:
-    - inventory_hostname not in groups['proxmox'] | default([])
-    - not (node_has_internet | default(true) | bool)
+- name: Ensure APT proxy configuration is absent
+  ansible.builtin.file:
+    path: /etc/apt/apt.conf.d/01proxy
+    state: absent
   tags:
     - always
     - common

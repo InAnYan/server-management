@@ -14,29 +14,33 @@
     url: https://packages.fluentbit.io/fluentbit.key
     dest: /tmp/fluentbit.key
     mode: "0644"
-  environment: "{{ {'http_proxy': 'http://' ~ ansible_default_ipv4.gateway ~ ':8888', 'https_proxy': 'http://' ~ ansible_default_ipv4.gateway ~ ':8888'} if not (node_has_internet | default(true) | bool) else {} }}"
+  when: node_has_internet | default(true) | bool
 
 - name: Dearmor Fluent Bit GPG key
   ansible.builtin.command:
     cmd: gpg --dearmor --yes -o /etc/apt/keyrings/fluentbit.gpg /tmp/fluentbit.key
     creates: /etc/apt/keyrings/fluentbit.gpg
+  when: node_has_internet | default(true) | bool
 
 - name: Clean up temporary GPG key file
   ansible.builtin.file:
     path: /tmp/fluentbit.key
     state: absent
+  when: node_has_internet | default(true) | bool
 
 - name: Configure Fluent Bit official APT repository
   ansible.builtin.apt_repository:
     repo: "deb [signed-by=/etc/apt/keyrings/fluentbit.gpg] https://packages.fluentbit.io/debian/{{ ansible_distribution_release }} {{ ansible_distribution_release }} main"
     state: present
     filename: fluent-bit
+  when: node_has_internet | default(true) | bool
 
 - name: Install Fluent Bit package
   ansible.builtin.apt:
     name: fluent-bit
     state: present
     update_cache: true
+  when: node_has_internet | default(true) | bool
 
 - name: Deploy Fluent Bit configuration
   ansible.builtin.template:

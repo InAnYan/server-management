@@ -1,6 +1,7 @@
 services:
   redis:
     image: {{ redis_image }}
+    pull_policy: missing
     container_name: {{ inventory_hostname }}
     restart: unless-stopped
     command: ["valkey-server", "--requirepass", "{{ redis_password }}", "--appendonly", "yes", "--protected-mode", "no"]

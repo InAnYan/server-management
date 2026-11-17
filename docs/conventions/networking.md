@@ -97,7 +97,8 @@ Strict isolation is maintained between environments to implement least-privilege
 <!-- [oman->req~databases-isolated-from-internet~1] -->
 - **Internet Access**:
   - Application tiers (**Core Coordinator**, **Core Apps**, **Dev Apps**, and **Prod Apps**) have outbound internet access for package updates, dependencies, and external APIs.
-  - Database tiers (**Core Databases**, **Dev Databases**, and **Prod Databases**) have **no** internet access, as databases do not require external connectivity.
+  - Database tiers (**Core Databases**, **Dev Databases**, and **Prod Databases**) have **no** internet access (`snat = false`), as databases do not require external connectivity.
+  - Workload and database container images (e.g. `postgres:16-alpine`, `valkey/valkey:8.0-alpine`) are pre-fetched on the Proxmox control host (`/srv/admin/images/`) via `skopeo` and pushed to isolated target nodes over SSH (`ansible.builtin.copy` and `docker load`), ensuring 100% air-gapped deployment with zero outbound internet dependencies.
 
 ```mermaid
 flowchart TD

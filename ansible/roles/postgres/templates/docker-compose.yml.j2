@@ -3,6 +3,7 @@
 services:
   postgres:
     image: postgres:{{ postgres_version }}
+    pull_policy: missing
     container_name: {{ postgres_container_name }}
     restart: unless-stopped
     ports:

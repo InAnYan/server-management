@@ -6,8 +6,10 @@
     upgrade: dist
   when:
     - inventory_hostname not in groups['proxmox'] | default([])
+    - node_has_internet | default(true) | bool
 
 - name: Install essential baseline packages
   ansible.builtin.apt:
     name: "{{ common_packages }}"
     state: present
+  when: node_has_internet | default(true) | bool
